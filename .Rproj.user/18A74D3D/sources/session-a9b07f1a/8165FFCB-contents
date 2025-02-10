@@ -1,4 +1,4 @@
-# PIRFA: Product of Indicators (PI) for MIMIC/RFA Models in DIF detection
+# piRFA: Product of Indicators (PI) for MIMIC/RFA Models in DIF detection
 
 <!-- badges: start -->
 
