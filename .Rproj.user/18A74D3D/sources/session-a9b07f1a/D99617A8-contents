@@ -4,3 +4,4 @@ devtools::document()
 
 # Crear README.md
 usethis::use_readme_md()
+devtools::document()
