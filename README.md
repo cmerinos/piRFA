@@ -18,7 +18,7 @@ library(piRFA)
 
 ## Example
 
-Basic example:
+### Basic example:
 
 ``` r
 library(piRFA)
@@ -34,6 +34,7 @@ example_data <- data.frame(
 # Run DIF analysis
 results <- piRFA(data = example_data, items = c("item1", "item2", "item3"), cov = "group")
 
+# Show output
 results
 
 # View specific results
