@@ -98,7 +98,7 @@
 #'
 #'
 #' @seealso
-#'\code{\link[lavaan]{cfa}}, \code{\link[scripty]{mimic}}, \code{\link[scripty]{prods}}
+#' \code{\link[lavaan]{cfa}}, \code{\link[scripty]{mimic}}, \code{\link[scripty]{prods}}
 #'
 #'@export
 
