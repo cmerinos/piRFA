@@ -1,4 +1,4 @@
-# piRFA: Product of Indicators (PI) for MIMIC/RFA Models in DIF detection
+# piRFA: R package for DIF detection using Product of Indicators (PI) for MIMIC/RFA Models
 
 <!-- badges: start -->
 
