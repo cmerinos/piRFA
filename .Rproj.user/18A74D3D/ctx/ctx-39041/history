@@ -1,0 +1,113 @@
+devtools::document()
+devtools::document()
+devtools::install_github("cmerinos/piRFA")
+library(piRFA)
+devtools::install_github("cmerinos/piRFA")
+devtools::install_github("cmerinos/piRFA")
+devtools::install_github("cmerinos/piRFA")
+devtools::install_github("cmerinos/piRFA")
+devtools::install_github("cmerinos/piRFA")
+library(piRFA)
+citation("piRFA")
+citation("piRFA")
+citation("piRFA")
+devtools::install_github("cmerinos/piRFA")
+detach("package:piRFA", unload = TRUE)
+remove.packages("piRFA")
+library(piRFA)
+devtools::install_github("cmerinos/piRFA")
+citation("piRFA")
+citation("piRFA")
+library(piRFA)
+detach("package:piRFA", unload = TRUE)
+remove.packages("piRFA")
+devtools::install_github("cmerinos/piRFA")
+library(piRFA)
+citation("piRFA")
+psych::bfi
+data(psych::bfi)
+psych::bfi
+library(psych)
+data("bfi")
+bfi[, "A1", "A2", "A3", ]
+bfi[, c("N1", "N2", "N3", "N4", "N5")]
+bfi[, c("N1", "N2", "N3", "N4", "N5", "gender", "age")]
+data.bfi <- bfi[, c("N1", "N2", "N3", "N4", "N5", "gender", "age")]
+complete.cases(data.bfi)
+data.bfi[complete.cases(data.bfi)]
+data.bfi[,complete.cases(data.bfi)]
+data.bfi[]complete.cases(data.bfi)
+pirfa
+citation("piRFA")
+pirfa
+library(piRFA)
+pirfa
+library(piRFA)
+piRFA()
+piRFA()
+citation("piRFA")
+> detach("package:piRFA", unload = TRUE)
+devtools::install_github("cmerinos/piRFA")
+detach("package:piRFA", unload = TRUE)
+devtools::install_github("cmerinos/piRFA")
+library(piRFA)
+piRFA
+citation("piRFA")
+detach("package:piRFA", unload = TRUE)
+library(piRFA)
+citation("piRFA")
+detach("package:piRFA", unload = TRUE)
+devtools::install_github("cmerinos/piRFA")
+library(piRFA)
+citation("piRFA")
+piRFA
+?piRFA
+??piRFA
+detach("package:piRFA", unload = TRUE)
+devtools::install_github("cmerinos/piRFA")
+detach("package:piRFA", unload = TRUE)
+library(piRFA)
+??piRFA
+detach("package:piRFA", unload = TRUE)
+remove.packages("piRFA")
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+devtools::document()
+devtools::install()
+library(piRFA)
+??piRFA
+detach("package:piRFA", unload = TRUE)
+devtools::install()
+citation("piRFA")
+??piRFA
+remove.packages("piRFA")
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+devtools::document()
+devtools::install()
+??piRFA
+remove.packages("piRFA")
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+devtools::document()
+devtools::install()
+??piRFA
+detach("package:piRFA", unload = TRUE)
+devtools::document()
+devtools::install_github("cmerinos/piRFA")
+??piRFA
+remove.packages("piRFA")
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+devtools::document()
+devtools::install_github("cmerinos/piRFA")
+remove.packages("piRFA")
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+devtools::document()
+devtools::install()
+library(piRFA)
+??piRFA
+citation("piRFA")
+install.packages(c("bayesplot", "betareg", "cards", "clarabel", "cli", "doBy", "EGAnet", "epiR", "fs", "future", "globals", "GPArotation", "gss", "gtsummary", "heplots", "httpuv", "later", "lpSolveAPI", "miniUI", "optimx", "paran", "ps", "qgam", "ragg", "RcppArmadillo", "recipes", "rlang", "sass", "scs", "sparsevctrs", "terra", "tinytex", "writexl", "zoo"))
+remove.packages("piRFA")
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+devtools::document()
+devtools::install()
+remove.packages("rlang")
+remove.packages("fs")
