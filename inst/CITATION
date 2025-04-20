@@ -1,6 +1,4 @@
-# Crear nueva versión del archivo CITATION con "InCollection" en lugar de "InBook"
 
-citation_text_updated = """
 citHeader("To cite the piRFA package in publications, use:")
 
 bibentry(
