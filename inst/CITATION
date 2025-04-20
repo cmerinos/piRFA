@@ -1,3 +1,4 @@
+
 citHeader("To cite the piRFA package in publications, use:")
 
 bibentry(
@@ -9,7 +10,8 @@ bibentry(
   url = "https://github.com/cmerinos/piRFA"
 )
 
-# Optional: add published references
+# Additional published references:
+
 bibentry(
   bibtype = "InBook",
   title = "Using product indicators in restricted factor analysis models to detect nonuniform measurement bias",
@@ -17,10 +19,47 @@ bibentry(
     person("Kolbe", "L."),
     person("Jorgensen", "T. D.")
   ),
-  booktitle = "Quantitative Psychology: The 82nd Annual Meeting of the Psychometric Society",
-  year = 2018,
-  pages = "235�245",
+  booktitle = "Quantitative psychology: The 82nd Annual Meeting of the Psychometric Society, Zurich, Switzerland, 2017",
+  editor = c(
+    person("Wiberg", "M."),
+    person("Culpepper", "S. A."),
+    person("Janssen", "R."),
+    person("Gonzalez", "J."),
+    person("Molenaar", "D.")
+  ),
   publisher = "Springer",
   address = "New York, NY",
+  year = 2018,
+  pages = "235–245",
   doi = "10.1007/978-3-319-77249-3_20"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "Using restricted factor analysis to select anchor items and detect differential item functioning",
+  author = c(
+    person("Kolbe", "L."),
+    person("Jorgensen", "T. D.")
+  ),
+  journal = "Behavior Research Methods",
+  year = 2019,
+  volume = "51",
+  pages = "138–151",
+  doi = "10.3758/s13428-018-1151-3"
+)
+
+bibentry(
+  bibtype = "Article",
+  title = "The Impact of Unmodeled Heteroskedasticity on Assessing Measurement Invariance in Single-group Models",
+  author = c(
+    person("Kolbe", "L."),
+    person("Jorgensen", "T. D."),
+    person("Molenaar", "D.")
+  ),
+  journal = "Structural Equation Modeling: A Multidisciplinary Journal",
+  year = 2020,
+  volume = "28",
+  number = "1",
+  pages = "82–98",
+  doi = "10.1080/10705511.2020.1766357"
 )
