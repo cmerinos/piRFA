@@ -62,18 +62,18 @@
 #'
 #'
 #' # Run DIF analysis, and full output
-#' piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")
+#' piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")
 #'
 #' # Specific output: Uniform DIF (uDIF)
-#' Exmp1.output <- piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")
+#' Exmp1.output <- piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")
 #'
 #' Exmp1.output$DIF_Uniforme
 #'
 #' # Specific output: full SPEC
-#' piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")$SPEC
+#' piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")$SPEC
 #'
 #' # Specific output: full SPEC for uniform DIF
-#' piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")$SPEC[c(1,3), ]
+#' piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")$SPEC[c(1,3), ]
 #'
 #'
 #'
