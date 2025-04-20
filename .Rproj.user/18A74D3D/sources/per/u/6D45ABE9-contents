@@ -1,0 +1,17 @@
+devtools::install_github("cmerinos/piRFA")
+3
+library(piRFA)
+pirfa
+citation("piRFA")
+
+> detach("package:piRFA", unload = TRUE)
+
+library(psych)
+# Loading data
+data("bfi")
+
+# Choosing variables
+data.bfi <- bfi[, c("N1", "N2", "N3", "N4", "N5", "gender", "age")]
+
+# Clean for missing values
+data.bfi[]complete.cases(data.bfi)
