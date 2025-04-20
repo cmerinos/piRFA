@@ -3,7 +3,7 @@
     "path": "~/GitHub/piRFA/DESCRIPTION",
     "project_path": "DESCRIPTION",
     "type": "dcf",
-    "hash": "3621808766",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1745165261704.0,
@@ -12,7 +12,7 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "5,91",
+        "cursorPosition": "4,0",
         "scrollLine": "0"
     },
     "folds": "",
