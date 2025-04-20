@@ -1,10 +1,11 @@
 devtools::install_github("cmerinos/piRFA")
 3
 library(piRFA)
-pirfa
+piRFA()
+
 citation("piRFA")
 
-> detach("package:piRFA", unload = TRUE)
+detach("package:piRFA", unload = TRUE)
 
 library(psych)
 # Loading data
