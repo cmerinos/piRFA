@@ -65,3 +65,11 @@ bibentry(
   pages = "82–98",
   doi = "10.1080/10705511.2020.1766357"
 )
+"""
+
+citation_file_path_updated = "/mnt/data/CITATION"
+
+with open(citation_file_path_updated, "w", encoding="utf-8") as f:
+    f.write(citation_text_updated)
+
+citation_file_path_updated
