@@ -2,3 +2,4 @@ devtools::install_github("cmerinos/piRFA")
 library(piRFA)
 citation("piRFA")
 
+> detach("package:piRFA", unload = TRUE)
