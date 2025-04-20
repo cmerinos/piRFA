@@ -25,4 +25,14 @@ data("bfi")
 data.bfi <- bfi[, c("N1", "N2", "N3", "N4", "N5", "gender", "age")]
 
 # Clean for missing values
-data.bfi[]complete.cases(data.bfi)
+data.bfi <- data.bfi[complete.cases(data.bfi), ]
+
+data.bfi$gender <- as.factor(data.bfi$gender)
+neuro.items <- c("N1", "N2", "N3", "N4", "N5")
+resultado.gender <- piRFA(data = data.bfi,
+                          items = neuro.items,
+                          cov = "gender",
+                          lvname = "Neuroticismo",
+                          est = "MLM")
+
+resultado.gender
