@@ -11,7 +11,7 @@ devtools::install_github("cmerinos/piRFA")
 1
 
 library(piRFA)
-??piRFA
+?piRFA
 
 citation("piRFA")
 
