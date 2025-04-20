@@ -27,43 +27,42 @@ La función devuelve una lista con los siguientes DataFrames:
  }
 }
 \description{
-La función `piRFA` analiza el funcionamiento diferencial de ítems (DIF) 
-utilizando el multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI). Se apoya en el `lavaan` y `scripty`. 
+La función `piRFA` analiza el funcionamiento diferencial de ítems (DIF)
+utilizando el multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI). Se apoya en el `lavaan` y `scripty`.
 Permite evaluar DIF uniforme y no uniforme en una escala de medición, mediante pruebas estadísticas y una aproximación del tamaño del efecto.
 }
 \details{
-Esta función implementa el análisis de Funcionamiento Diferencial de Ítems (DIF) utilizando 
-el enfoque de Producto de Indicadores (PI; Kolbe & Jorgensen, 2018) dentro del marco 
-de Restricted Factor Analysis (RFA; Oort, 1998). Este método opera bajo un esquema 
-MIMIC (Finch, 2005), incorporando interacciones entre variables latentes mediante PI (Kolbe & Jorgensen, 2018, 2019; 
-Kolbe, Jorgensen, & Molenaar, 2020). Permite evaluar DIF uniforme (uDIF) y DIF no uniforme (nuDIF) 
+Esta función implementa el análisis de Funcionamiento Diferencial de Ítems (DIF) utilizando
+el enfoque de Producto de Indicadores (PI; Kolbe & Jorgensen, 2018) dentro del marco
+de Restricted Factor Analysis (RFA; Oort, 1998). Este método opera bajo un esquema
+MIMIC (Finch, 2005), incorporando interacciones entre variables latentes mediante PI (Kolbe et al., 2018, 2019;
+Kolbe, Jorgensen, & Molenaar, 2020). Permite evaluar DIF uniforme (uDIF) y DIF no uniforme (nuDIF)
 con covariables tanto categóricas (ej., sexo) como continuas (ej., autoestima, conciencia).
 
-La estimación se realiza mediante `lavaan::cfa`, y las pruebas estadísticas de DIF se basan 
-en el likelihood ratio test (LRT), utilizando una comparación entre un modelo no restringido 
-(con parámetros de efecto de la covariable y su interacción estimados libremente) y un modelo 
-restringido (con estos parámetros fijados en cero), evaluado mediante una prueba chi-cuadrado 
+La estimación se realiza mediante `lavaan::cfa`, y las pruebas estadísticas de DIF se basan
+en el likelihood ratio test (LRT), utilizando una comparación entre un modelo no restringido
+(con parámetros de efecto de la covariable y su interacción estimados libremente) y un modelo
+restringido (con estos parámetros fijados en cero), evaluado mediante una prueba chi-cuadrado
 con 2 grados de libertad (`df = 2`).
 
-La implementación se basa en `lavaan::lavTestScore` y `lavaan::cfa`, integrando funcionalidades 
-modificadas de `scripty::mimic` y `scripty::prods`. A diferencia de `scripty`, esta función 
+La implementación se basa en `lavaan::lavTestScore` y `lavaan::cfa`, integrando funcionalidades
+modificadas de `scripty::mimic` y `scripty::prods`. A diferencia de `scripty`, esta función
 evita la creación de archivos externos, permitiendo que toda la salida sea accesible en la sesión de R.
 
-Como indicador de tamaño del efecto, `piRFA()` adopta el enfoque de releasing fixed-to-zero 
-parameters (Whittaker, 2012; Garnier-Villarreal & Jorgensen, 2024). Se estiman el expected parameter change 
-(`epc`) y el standardized expected parameter change (`sepc.all`), siguiendo la metodología de Chou & Bentler (1993). 
-`sepc.all` representa el cambio en unidades estandarizadas al liberar la restricción del valor cero 
-en los parámetros analizados de los ítems. Valores `sepc.all ≥ .20` se consideran indicativos de 
-una posible mala especificación del modelo (Whittaker, 2012), mientras que valores `≥ .10` 
+Como indicador de tamaño del efecto, `piRFA()` adopta el enfoque de releasing fixed-to-zero
+parameters (Whittaker, 2012; Garnier-Villarreal & Jorgensen, 2024). Se estiman el expected parameter change
+(`epc`) y el standardized expected parameter change (`sepc.all`), siguiendo la metodología de Chou & Bentler (1993).
+`sepc.all` representa el cambio en unidades estandarizadas al liberar la restricción del valor cero
+en los parámetros analizados de los ítems. Valores `sepc.all ≥ .20` se consideran indicativos de
+una posible mala especificación del modelo (Whittaker, 2012), mientras que valores `≥ .10`
 (Kaplan, 1989) representan un límite para un efecto moderado.
 
-El usuario puede seleccionar el estimador apropiado entre `"MLM"`, `"MLR"` y `"ULSMV"`, 
+El usuario puede seleccionar el estimador apropiado entre `"MLM"`, `"MLR"` y `"ULSMV"`,
 dependiendo del supuesto de normalidad y robustez deseado.
 }
 \examples{
 ### Example 1 -------------
 
-Example 1 data
 set.seed(123)
 Exmp1.data <- data.frame(
   grp = sample(0:1, 100, replace = TRUE),  # Variable de grupo
@@ -72,15 +71,15 @@ Exmp1.data <- data.frame(
   item3 = sample(1:5, 100, replace = TRUE),
   item4 = sample(1:5, 100, replace = TRUE))
 
- 
+
 Run DIF analysis, and full output
 piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")
- 
+
 Specific output: Uniform DIF (uDIF)
 Exmp1.output <- piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")
 
 Exmp1.output$DIF_Uniforme
- 
+
 Specific output: full SPEC
 piRFA(data = Exmp1.data , items = c("Item1", "Item2", "Item3"), cov = "grp")$SPEC
 
@@ -99,11 +98,11 @@ Garnier-Villarreal, M., & Jorgensen, T. D. (2024). Evaluating Local Model Misspe
 
 Kaplan D. (1989). Model Modification in Covariance Structure Analysis: Application of the Expected Parameter Change Statistic. \emph{Multivariate Behavioral Research}, 24(3), 285–#' 305. https://doi.org/10.1207/s15327906mbr2403_2
 
-Kolbe, L., & Jorgensen, T. D. (2018). Analysis of Differential Item Functioning Using Product Indicators. \emph{Journal of Measurement and Evaluation}, 45(2), 123-140.
+Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted factor analysis models to detect nonuniform measurement bias. In M. Wiberg, S. A. Culpepper, R. Janssen, #' J. González, & D. Molenaar (Eds.), Quantitative psychology: The 82nd Annual Meeting of the Psychometric Society, Zurich, Switzerland, 2017 (pp. 235–245). New York, NY: Springer. https://doi.org/10.1007/978-3-319-77249-3_20
 
 Kolbe, L., & Jorgensen, T. D. (2019). Using restricted factor analysis to select anchor items and detect differential item functioning. \emph{Behavior Research Methods}, 51, 138–#' 151. https://doi.org/10.3758/s13428-018-1151-3
 
-Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted factor analysis models to detect nonuniform measurement bias. In M. Wiberg, S. A. Culpepper, R. Janssen, #' J. González, & D. Molenaar (Eds.), Quantitative psychology: The 82nd Annual Meeting of the Psychometric Society, Zurich, Switzerland, 2017 (pp. 235–245). New York, NY: Springer. #' doi:https://doi.org/10.1007/978-3-319-77249-3_20
+Kolbe, L., Jorgensen, T. D., & Molenaar, D. (2020). The Impact of Unmodeled Heteroskedasticity on Assessing Measurement Invariance in Single-group Models. Structural Equation Modeling: A Multidisciplinary Journal, 28(1), 82–98. https://doi.org/10.1080/10705511.2020.1766357
 
 Whittaker, T. A. (2012). Estimation of Standardized Expected Parameter Change for DIF Detection. \emph{Educational and Psychological Measurement}, 72(3), 342-357.
 }

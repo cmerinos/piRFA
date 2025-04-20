@@ -1,3 +1,12 @@
+remove.packages("piRFA")
+
+unlink("C:/Users/C NINJA/AppData/Local/R/win-library/4.3/piRFA", recursive = TRUE)
+
+devtools::document()
+
+devtools::install()
+
+
 devtools::install_github("cmerinos/piRFA")
 3
 1
