@@ -1,0 +1,26 @@
+citHeader("To cite the piRFA package in publications, use:")
+
+bibentry(
+  bibtype = "Manual",
+  title = "piRFA: Product of Indicators for RFA/MIMIC Models in DIF Detection",
+  author = person("Cesar", "Merino-Soto", email = "sikayax@yahoo.com.ar", role = c("aut", "cre")),
+  year = 2025,
+  note = "R package version 0.1.0",
+  url = "https://github.com/cmerinos/piRFA"
+)
+
+# Optional: add published references
+bibentry(
+  bibtype = "InBook",
+  title = "Using product indicators in restricted factor analysis models to detect nonuniform measurement bias",
+  author = c(
+    person("Kolbe", "L."),
+    person("Jorgensen", "T. D.")
+  ),
+  booktitle = "Quantitative Psychology: The 82nd Annual Meeting of the Psychometric Society",
+  year = 2018,
+  pages = "235–245",
+  publisher = "Springer",
+  address = "New York, NY",
+  doi = "10.1007/978-3-319-77249-3_20"
+)
