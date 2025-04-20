@@ -36,3 +36,4 @@ resultado.gender <- piRFA(data = data.bfi,
                           est = "MLM")
 
 resultado.gender
+piRFA.plot(resultados = resultado.gender, cov = "gender")
