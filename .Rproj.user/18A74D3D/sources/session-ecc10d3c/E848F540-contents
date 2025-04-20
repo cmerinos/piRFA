@@ -1,0 +1,32 @@
+Package: piRFA
+Type: Package
+Title: Product of Indicators (PI) for MIMIC/RFA Models in DIF Detection
+Version: 0.1.0
+Authors@R: c(
+    person("Cesar", "Merino-Soto", email = "sikayax@yahoo.com.ar", role = c("aut", "cre"))
+)
+Description: Provides functions to analyze differential item functioning (DIF) using
+    the Restricted Factor Analysis (RFA) approach, implemented within a Multiple Indicators
+    Multiple Causes (MIMIC) framework. The piRFA function includes likelihood ratio tests
+    for global, uniform, and non-uniform DIF detection, as well as effect size estimation
+    through a fixed-to-zero parameter release strategy. The implementation follows the
+    conceptual work of Kolbe and Jorgensen, and utilizes functions from the 'lavaan' and
+    'scripty' packages, among others.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 4.0.0)
+Imports:
+    lavaan,
+    scripty,
+    ggplot2,
+    dplyr,
+    tidyr,
+    stringr,
+    roxygen2
+Suggests:
+    devtools,
+    testthat,
+    knitr,
+    rmarkdown
+RoxygenNote: 7.3.2
