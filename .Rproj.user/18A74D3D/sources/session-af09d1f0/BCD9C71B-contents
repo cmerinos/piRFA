@@ -52,7 +52,6 @@
 #' @examples
 #' ### Example 1 -------------
 #'
-#' Example 1 data
 #' set.seed(123)
 #' Exmp1.data <- data.frame(
 #'   grp = sample(0:1, 100, replace = TRUE),  # Variable de grupo
