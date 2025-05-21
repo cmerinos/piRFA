@@ -200,6 +200,6 @@ piRFA <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
   mimic_param <- scripty::mimicparam(fit)
 
   resultados_DIF <- mimicout_modificado(fit, mimic_param, cov)
-
+  resultados_DIF$fit <- fit  # <-- Añade el objeto lavaan
   return(resultados_DIF)
 }
