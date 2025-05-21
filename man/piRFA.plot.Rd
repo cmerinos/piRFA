@@ -18,22 +18,27 @@ piRFA.plot(
 
 \item{cov}{Name of the covariate used in \code{\link{piRFA}}.}
 
-\item{metric}{Metric to plot: either `"EPC"` or `"SEPC.ALL"` (default is `"SEPC.ALL"`).}
+\item{metric}{Character. Metric to plot: either `"EPC"` or `"SEPC.ALL"` (default is `"SEPC.ALL"`).}
 
 \item{theme_option}{ggplot2 theme (default is `theme_minimal()`).}
 
-\item{bar_colors}{Colors for the types of DIF (default blue and red, named `"Uniform DIF"` and `"Non-uniform DIF"`).}
+\item{bar_colors}{Named character vector. Colors for DIF types (default: blue for "Uniform DIF", red for "Non-uniform DIF").}
 
-\item{cutoff_line}{Horizontal line(s) indicating the DIF cutoff (default `0.10`). Can be a vector, e.g., `c(-0.10, 0.10)`.}
+\item{cutoff_line}{Numeric or vector. Horizontal line(s) indicating the DIF cutoff (default is `0.10`). Can be a vector, e.g., `c(-0.10, 0.10)`.}
 }
 \value{
-A bar plot of EPC or SEPC coefficients for uniform and non-uniform DIF.
+A ggplot bar plot of EPC or SEPC coefficients for uniform and non-uniform DIF, or `NULL` if insufficient data are available for plotting.
 }
 \description{
-The `piRFA.plot()` function generates bar plots of EPC (EPC and SEPC.ALL) coefficients for uniform and non-uniform DIF, facilitating the interpretation of DIF effects in items evaluated by the \code{\link{piRFA}} function.
+The `piRFA.plot()` function generates bar plots of EPC (`EPC`) and standardized expected parameter change (`SEPC.ALL`) coefficients for uniform and non-uniform DIF, facilitating the interpretation of DIF effects in items evaluated by the \code{\link{piRFA}} function.
 }
 \details{
-\code{\link{piRFA.plot}} takes the output from \code{\link{piRFA}}, focused on the unstandardized (EPC) or standardized (SEPC.ALL) metric of the expected parameter change. The user must choose which metric to plot.
+`piRFA.plot` requires as input the output list from `piRFA`, specifically the `$SEPC` component. The function focuses on either the unstandardized (EPC) or standardized (SEPC.ALL) expected parameter change for each item, depending on the selected metric.
+
+- **Uniform DIF** refers to direct effects of the covariate on item responses (main effect).
+- **Non-uniform DIF** refers to interaction effects (latent variable by covariate).
+
+The function requires `ggplot2` and expects the output structure from `piRFA`. If the `$SEPC` component is empty or missing, the function returns `NULL` and prints a warning message.
 }
 \examples{
 set.seed(123)
@@ -43,7 +48,7 @@ Exmp1.data <- data.frame(
   item2 = sample(1:5, 100, replace = TRUE),
   item3 = sample(1:5, 100, replace = TRUE))
 
-Exmp1.output <- piRFA(data = Exmp1.data, items = c("Item1", "Item2", "Item3"), cov = "grp")
+Exmp1.output <- piRFA(data = Exmp1.data, items = c("item1", "item2", "item3"), cov = "grp")
 
 # Plot standardized expected parameter change (SEPC.ALL)
 piRFA.plot(Exmp1.output, cov = "grp")
