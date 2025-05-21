@@ -80,10 +80,10 @@ Exmp1.output <- piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), 
 
 Exmp1.output$DIF_Uniforme
 
-# Specific output: full SPEC
+# Specific output: full SEPC
 piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")$SPEC
 
-# Specific output: full SPEC for uniform DIF
+# Specific output: full SEPC for uniform DIF
 piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")$SPEC[c(1,3), ]
 
 
