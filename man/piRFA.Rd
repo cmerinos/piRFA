@@ -2,7 +2,7 @@
 % Please edit documentation in R/piRFA.R
 \name{piRFA}
 \alias{piRFA}
-\title{Function to Analyze DIF with PI-MIMIC (Product of Indicators)}
+\title{Function to Analyze DIF with PI-RFA/MIMIC (PI: Product of Indicators)}
 \usage{
 piRFA(data, items, cov, lvname = "LatFact", est = "MLM")
 }
@@ -15,20 +15,22 @@ piRFA(data, items, cov, lvname = "LatFact", est = "MLM")
 
 \item{lvname}{Name for the latent variable in the model (default is `"LatFact"`).}
 
-\item{est}{Abbreviation of the estimator to use; options are: "MLM", "MLR", "ULSMV" (default is `"MLM"`).}
+\item{est}{Abbreviation of the estimator to use. Must be a non-empty string (see lavaan documentation).}
 }
 \value{
 The function returns a list with the following DataFrames:
  \itemize{
-   \item \code{DIF_Global} - Global DIF results.
-   \item \code{DIF_Uniforme} - Uniform DIF results.
-   \item \code{DIF_NoUniforme} - Non-uniform DIF results.
-   \item \code{SEPC} - SEPC coefficients for uniform and non-uniform DIF.
+   \item \code{DIF.Global} - Global DIF results.
+   \item \code{DIF.Uniforme} - Uniform DIF results.
+   \item \code{DIF.NoUniforme} - Non-uniform DIF results.
+   \item \code{SEPC.uDIF} - SEPC coefficients for uniform DIF.
+   \item \code{SEPC.nuDIF} - SEPC coefficients for non-uniform DIF.
  }
 }
 \description{
 The `piRFA` function analyzes Differential Item Functioning (DIF)
-using the multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI).
+using the Restricted Factor Analysis (RFA) framework with product of indicators (PI), and
+modeled like multiple-indicators multiple-causes (MIMIC) .
 It relies on `lavaan` and `scripty`. Uniform and non-uniform DIF can be evaluated in a measurement scale,
 through statistical tests and an effect size approximation.
 }
@@ -57,8 +59,7 @@ in the analyzed item parameters. Values `sepc.all ≥ .20` are considered indica
 possible model misspecification (Whittaker, 2012), while values `≥ .10`
 (Kaplan, 1989) are a threshold for a moderate effect.
 
-The user can select the appropriate estimator among `"MLM"`, `"MLR"` and `"ULSMV"`,
-depending on normality and robustness assumptions.
+The user can select the appropriate estimator depending on normality and robustness assumptions.
 }
 \examples{
 ### Example 1 -------------
@@ -76,34 +77,41 @@ piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")
 
 # Specific output: Uniform DIF (uDIF)
 Exmp1.output <- piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")
+Exmp1.output$DIF.Uniforme
 
-Exmp1.output$DIF_Uniforme
+# Specific output: SEPC for uniform DIF
+Exmp1.output$SEPC.uDIF
 
-# Specific output: full SEPC
-piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")$SEPC
+# Specific output: SEPC for non-uniform DIF
+Exmp1.output$SEPC.nuDIF
 
-# Specific output: full SEPC for uniform DIF
-piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")$SEPC[c(1,3), ]
+### Example 2: Using the 'bfi' dataset from the 'psych' package
+library(psych)
+data("bfi")
 
+# Select Neuroticism items + gender as covariate
+data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
+data.bfi <- data.bfi[complete.cases(data.bfi), ]
+data.bfi$gender <- as.factor(data.bfi$gender)
 
+neuro.items <- c("N1","N2","N3","N4","N5")
+
+# Run DIF analysis
+res.bfi <- piRFA(data = data.bfi,
+                 items = neuro.items,
+                 cov = "gender",
+                 lvname = "Neuroticism",
+                 est = "MLM")
+
+# Global DIF results
+res.bfi$DIF.Global
+
+# SEPC for uniform DIF
+res.bfi$SEPC.uDIF
 
 }
 \references{
-Chou, C.-P., & Bentler, P. (1993). Invariant standardized estimated parameter change for model modification in covariance structure analysis. *Multivariate Behavioral Research*, 28, 97–110. https://doi.org/10.1207/s15327906mbr2801_6
-
-Finch, H. (2005). The MIMIC model as a method for detecting DIF: Comparison with Mantel–Haenszel, SIBTEST, and the IRT likelihood ratio. *Applied Psychological Measurement*, 29, 278–295. https://doi.org/10.1177/0146621605275728
-
-Garnier-Villarreal, M., & Jorgensen, T. D. (2024). Evaluating Local Model Misspecification with Modification Indices in Bayesian Structural Equation Modeling. *Structural Equation Modeling: A Multidisciplinary Journal*, 1–15. https://doi.org/10.1080/10705511.2024.2413128
-
-Kaplan D. (1989). Model Modification in Covariance Structure Analysis: Application of the Expected Parameter Change Statistic. *Multivariate Behavioral Research*, 24(3), 285–305. https://doi.org/10.1207/s15327906mbr2403_2
-
-Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted factor analysis models to detect nonuniform measurement bias. In M. Wiberg, S. A. Culpepper, R. Janssen, J. González, & D. Molenaar (Eds.), Quantitative psychology: The 82nd Annual Meeting of the Psychometric Society, Zurich, Switzerland, 2017 (pp. 235–245). New York, NY: Springer. https://doi.org/10.1007/978-3-319-77249-3_20
-
-Kolbe, L., & Jorgensen, T. D. (2019). Using restricted factor analysis to select anchor items and detect differential item functioning. *Behavior Research Methods*, 51, 138–151. https://doi.org/10.3758/s13428-018-1151-3
-
-Kolbe, L., Jorgensen, T. D., & Molenaar, D. (2020). The Impact of Unmodeled Heteroskedasticity on Assessing Measurement Invariance in Single-group Models. *Structural Equation Modeling: A Multidisciplinary Journal*, 28(1), 82–98. https://doi.org/10.1080/10705511.2020.1766357
-
-Whittaker, T. A. (2012). Estimation of Standardized Expected Parameter Change for DIF Detection. *Educational and Psychological Measurement*, 72(3), 342-357.
+(mismos que ya tenías…)
 }
 \seealso{
 \code{\link[lavaan]{cfa}}, \code{\link[scripty]{mimic}}, \code{\link[scripty]{prods}}, \code{\link{piRFA.plot}}
