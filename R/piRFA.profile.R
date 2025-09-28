@@ -47,15 +47,41 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Run piRFA
-#' results <- piRFA(data = mydata, items = c("item1", "item2"), cov = "group")
+#' library(psych)
+#' # Load data
+#' data("bfi")
 #'
-#' # DIF profile for item1
-#' piRFA.profile(resultados = results, data = mydata, item = "item1", cov = "group")
+#' # Select variables and clean missing values
+#' data.bfi <- bfi[, c("N1", "N2", "N3", "N4", "N5", "gender", "age")]
 #'
-#' # DIF profile with standardized parameters
-#' piRFA.profile(resultados = results, data = mydata, item = "item1", cov = "group",
-#'                parType = "std")
+#' data.bfi <- data.bfi[complete.cases(data.bfi), ]
+#'
+#' data.bfi$gender <- as.factor(data.bfi$gender)
+#'
+#' neuro.items <- c("N1", "N2", "N3", "N4", "N5")
+#'
+#' library(lavaan)
+#' resultado.gender <- piRFA(data = data.bfi,
+#'                           items = neuro.items,
+#'                           cov = "gender",
+#'                           lvname = "Neuroticismo",
+#'                           est = "ulsmv", Oort.adj = FALSE)
+#'
+#' Basic profile plot
+#' piRFA.profile(resultados = resultado.gender,
+#'               data = data.bfi,
+#'               item = "N3",
+#'               cov = "gender")
+#'
+#' # Customized plot with labels and parameter type
+#' piRFA.profile(resultados = resultado.gender,
+#'               data = data.bfi,
+#'               item = "N1",
+#'               cov = "gender",
+#'               thetaRange = c(-3, 3),
+#'               nPoints = 200,
+#'               labels = c("Female", "Male"),
+#'               parType = "none", themeOption = "theme_classic")
 #' }
 #'
 #' @export
