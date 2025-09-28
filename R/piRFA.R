@@ -124,7 +124,7 @@
 #' *Structural Equation Modeling*, 1–15.
 #'
 #' @importFrom lavaan cfa lavTestScore parameterestimates
-#' @importFrom scripty prods mimicparam
+#' @importFrom scripty prods mimic.param
 #' @export
 piRFA <- function(data, items, cov, lvname = "LatFact", est = "MLM",
                   Oort.adj = FALSE, p.crit = 0.05) {
@@ -243,7 +243,7 @@ piRFA <- function(data, items, cov, lvname = "LatFact", est = "MLM",
              estimator = est,
              meanstructure = TRUE)
 
-  mimic_param <- scripty::mimicparam(fit)
+  mimic_param <- scripty::mimic.param(fit)
 
   resultados_DIF <- mimicout_modificado(fit, mimic_param, cov, Oort.adj, p.crit)
   resultados_DIF$fit <- fit
