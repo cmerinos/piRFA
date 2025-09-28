@@ -63,6 +63,12 @@
 #'         potential inflation of Type I error in MIMIC-PI models.
 #' }
 #'
+#'Note: The Oort adjustment can yield very large critical values when the baseline model has a high chi-square
+#'relative to its degrees of freedom (e.g., in short tests, 3 or 4 items). This reflects the conservative
+#'nature of the adjustment: Type I error is strongly controlled, but power to detect DIF may be
+#'substantially reduced. Users are advised to report both the standard and the Oort-adjusted results,
+#'and interpret them in light of overall model fit.
+#'
 #' @examples
 #' ### Example 1: simulated data -------------
 #' set.seed(123)
