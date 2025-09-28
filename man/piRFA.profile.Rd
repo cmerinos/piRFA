@@ -11,9 +11,7 @@ piRFA.profile(
   cov,
   theta_range = c(-3, 3),
   n_points = 200,
-  theme_option = ggplot2::theme_minimal(),
-  labels = NULL,
-  warn = TRUE
+  theme_option = ggplot2::theme_minimal()
 )
 }
 \arguments{
@@ -30,15 +28,14 @@ piRFA.profile(
 \item{n_points}{Number of evaluation points along the latent trait (default = 200).}
 
 \item{theme_option}{A `ggplot2` theme object to customize the plot appearance.
-Common options include: #' theme_minimal() (default), theme_bw(), theme_classic(),
-theme_light(), theme_dark(), theme_void(), theme_gray(), theme_linedraw(), theme_test()
-and others.}
-
-\item{labels}{Optional character vector to rename groups in the plot legend.
-If `NULL` (default), the original group names from `data[[cov]]` are used.}
+Common options include:
+`theme_minimal()` (default), `theme_bw()`, `theme_classic()`,
+`theme_light()`, `theme_dark()`, `theme_void()`, `theme_gray()`, `theme_linedraw()`,
+`theme_test()` and others..}
 }
 \value{
-A `ggplot2` object showing the DIF profile for PI-MIMIC output.
+A `ggplot2` object showing the DIF profile for PI-MIMIC output
+(Multiple-Indicatros Multiple-Causes with Product of Indicators).
 }
 \description{
 This function plots the expected response curves (linear prediction) across levels of the latent trait (θ)
@@ -46,8 +43,21 @@ for each group defined by a covariate. It is useful to visually inspect DIF—es
 }
 \details{
 The function uses the parameter estimates from `piRFA()` to compute predicted responses
-for each group along a latent variable continuum.
+for each group along a latent variable continuum. It is especially helpful in visualizing
+non-uniform DIF, where the slope or pattern of response varies by group.
 
 The formula used is a linear prediction:
 \deqn{y = intercept + loading * theta + direct_effect * group + interaction * (theta × group)}
+
+This function assumes a linear model and is best interpreted when DIF is suspected or detected.
+}
+\examples{
+\dontrun{
+# Run piRFA
+results <- piRFA(data = mydata, items = c("item1", "item2"), cov = "group")
+
+# DIF profile for item1
+piRFA.profile(resultados = results, data = mydata, item = "item1", cov = "group")
+}
+
 }
