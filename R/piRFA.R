@@ -145,8 +145,8 @@ piRFA <- function(data, items, cov, lvname = "LatFact", est = "MLM",
 
     # Baseline chi2 and df
     baseline <- fit.mimic@test$standard
-    chi0 <- baseline["stat"]
-    df0  <- baseline["df"]
+    chi0 <- as.numeric(baseline[["stat"]])
+    df0  <- as.numeric(baseline[["df"]])
 
     # Oort adjustment
     add_oort <- function(df_table) {
