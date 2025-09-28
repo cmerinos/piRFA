@@ -39,10 +39,10 @@
 #' }
 #'
 #' @export
-piRFA.profile <- function(resultados, data, item, cov,
-                          theta_range = c(-3, 3),
-                          n_points = 200,
-                          theme_option = ggplot2::theme_minimal()) {
+piRFA.profile2 <- function(resultados, data, item, cov,
+                           theta_range = c(-3, 3),
+                           n_points = 200,
+                           theme_option = ggplot2::theme_minimal()) {
 
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("The ggplot2 package is required but not installed.")
@@ -50,20 +50,26 @@ piRFA.profile <- function(resultados, data, item, cov,
 
   theta_seq <- seq(from = theta_range[1], to = theta_range[2], length.out = n_points)
 
-  sepc_data <- resultados$SEPC
+  # Unir SEPC.uDIF y SEPC.nuDIF
+  sepc_data <- rbind(resultados$SEPC.uDIF, resultados$SEPC.nuDIF)
   coefs_item <- sepc_data[sepc_data$Item == item, ]
 
   # Extraer parámetros
-  intercept <- coefs_item$EPC[grepl("Intercept", coefs_item$Effect)]
-  loading   <- coefs_item$EPC[grepl("LFac",     coefs_item$Effect)]
-  direct    <- coefs_item$EPC[grepl(paste0("~", cov), coefs_item$Effect)]
+  intercept <- 0    # no está en tus tablas
+  loading   <- 1    # idem
+  direct    <- coefs_item$EPC[coefs_item$Effect == paste0(cov, "lat")]
   interaction <- coefs_item$EPC[grepl(paste0("LFacX", cov), coefs_item$Effect)]
 
   # Defaults si no se encuentra
-  if (length(intercept) == 0) intercept <- 0
-  if (length(loading) == 0)   loading <- 1
-  if (length(direct) == 0)    direct <- 0
+  if (length(direct) == 0) direct <- 0
   if (length(interaction) == 0) interaction <- 0
+
+  # Mostrar para depuración
+  message("Item: ", item,
+          "\n  Intercept   = ", intercept,
+          "\n  Loading     = ", loading,
+          "\n  Direct      = ", direct,
+          "\n  Interaction = ", interaction)
 
   groups <- unique(data[[cov]])
   pred_df <- data.frame()
@@ -85,7 +91,6 @@ piRFA.profile <- function(resultados, data, item, cov,
     pred_df <- rbind(pred_df, temp_df)
   }
 
-  # Mantener nombres originales
   pred_df$group <- factor(pred_df$group, levels = groups)
 
   p <- ggplot2::ggplot(pred_df, ggplot2::aes(x = theta, y = predicted, color = group)) +
