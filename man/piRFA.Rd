@@ -2,9 +2,17 @@
 % Please edit documentation in R/piRFA.R
 \name{piRFA}
 \alias{piRFA}
-\title{Function to Analyze DIF with PI-RFA/MIMIC (PI: Product of Indicators)}
+\title{Function to Analyze DIF with PI-RFA/MIMIC (Product of Indicators)}
 \usage{
-piRFA(data, items, cov, lvname = "LatFact", est = "MLM")
+piRFA(
+  data,
+  items,
+  cov,
+  lvname = "LatFact",
+  est = "MLM",
+  Oort.adj = FALSE,
+  p.crit = 0.05
+)
 }
 \arguments{
 \item{data}{DataFrame containing items and the covariate.}
@@ -16,11 +24,17 @@ piRFA(data, items, cov, lvname = "LatFact", est = "MLM")
 \item{lvname}{Name for the latent variable in the model (default is `"LatFact"`).}
 
 \item{est}{Abbreviation of the estimator to use. Must be a non-empty string (see lavaan documentation).}
+
+\item{Oort.adj}{Logical. If `TRUE`, applies Oort's critical value adjustment to likelihood ratio (LR) tests.
+Default is `FALSE`.}
+
+\item{p.crit}{Numeric. Significance level used to compute the chi-square critical value (e.g., 0.05, 0.01, 0.10).
+Only used if `Oort.adj = TRUE`. Default is `0.05`.}
 }
 \value{
 The function returns a list with the following DataFrames:
  \itemize{
-   \item \code{DIF.Global} - Global DIF results.
+   \item \code{DIF.Global} - Global DIF results (includes Oort-adjusted critical value if requested).
    \item \code{DIF.Uniforme} - Uniform DIF results.
    \item \code{DIF.NoUniforme} - Non-uniform DIF results.
    \item \code{SEPC.uDIF} - SEPC coefficients for uniform DIF.
@@ -29,8 +43,7 @@ The function returns a list with the following DataFrames:
 }
 \description{
 The `piRFA` function analyzes Differential Item Functioning (DIF)
-using the Restricted Factor Analysis (RFA) framework with product of indicators (PI), and
-modeled like multiple-indicators multiple-causes (MIMIC) .
+using the multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI).
 It relies on `lavaan` and `scripty`. Uniform and non-uniform DIF can be evaluated in a measurement scale,
 through statistical tests and an effect size approximation.
 }
@@ -43,27 +56,36 @@ Kolbe, Jorgensen, & Molenaar, 2020). It allows for the evaluation of uniform (uD
 with covariates that can be categorical (e.g., sex) or continuous (e.g., self-esteem, conscientiousness).
 
 Estimation is performed via `lavaan::cfa`, and DIF statistical tests are based
-on the likelihood ratio test (LRT), comparing an unrestricted model
+on the likelihood ratio test (LRT). By default, chi-square tests compare an unrestricted model
 (with covariate effect and interaction parameters freely estimated) and a restricted model
-(with these parameters fixed to zero), using a chi-square test with 2 degrees of freedom (`df = 2`).
+(with these parameters fixed to zero), using the standard chi-square distribution.
 
-The implementation relies on `lavaan::lavTestScore` and `lavaan::cfa`, integrating modified functionalities
-from `scripty::mimic` and `scripty::prods`. Unlike `scripty`, this function
-avoids creating external files, allowing all output to be accessed in the R session.
+However, simulation studies (Oort, 1992, 1998; Kim, Yoon & Lee, 2011/2012) have shown that
+the LR test under MIMIC may suffer from inflated Type I error rates. To address this, Oort proposed
+a correction of the chi-square critical value:
 
-As an effect size indicator, `piRFA()` uses the releasing fixed-to-zero
-parameters approach (Whittaker, 2012; Garnier-Villarreal & Jorgensen, 2024). The expected parameter change
-(`epc`) and the standardized expected parameter change (`sepc.all`) are estimated following Chou & Bentler (1993).
-`sepc.all` represents the standardized unit change upon releasing the zero restriction
-in the analyzed item parameters. Values `sepc.all ≥ .20` are considered indicative of
-possible model misspecification (Whittaker, 2012), while values `≥ .10`
-(Kaplan, 1989) are a threshold for a moderate effect.
+\deqn{K' = \left( \frac{\chi^2_0}{K + df_0 - 1} \right) K}
 
-The user can select the appropriate estimator depending on normality and robustness assumptions.
+where:
+\itemize{
+  \item \eqn{K'} is the adjusted critical value,
+  \item \eqn{K} is the original critical value from the chi-square distribution at significance level \eqn{p.crit},
+  \item \eqn{\chi^2_0} is the chi-square statistic of the baseline model,
+  \item \eqn{df_0} is the corresponding degrees of freedom of the baseline model.
+}
+
+Interpretation:
+\itemize{
+  \item The reported \code{p.value} corresponds to the standard chi-square test.
+  \item When \code{Oort.adj = TRUE}, the function also reports the adjusted critical value (\code{crit.Oort}).
+  \item Users can compare the observed chi-square statistic against both thresholds:
+        the conventional critical value (via \code{p.value}) and the Oort-adjusted critical value.
+  \item This comparison allows assessment of how conclusions may differ when controlling for
+        potential inflation of Type I error in MIMIC-PI models.
+}
 }
 \examples{
-### Example 1 -------------
-
+### Example 1: simulated data -------------
 set.seed(123)
 Exmp1.data <- data.frame(
   grp = sample(0:1, 100, replace = TRUE),  # Group variable
@@ -72,47 +94,46 @@ Exmp1.data <- data.frame(
   item3 = sample(1:5, 100, replace = TRUE),
   item4 = sample(1:5, 100, replace = TRUE))
 
-# Run DIF analysis, and full output
-piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")
+res1 <- piRFA(data = Exmp1.data , items = c("item1","item2","item3"), cov = "grp")
+res1$DIF.Global
 
-# Specific output: Uniform DIF (uDIF)
-Exmp1.output <- piRFA(data = Exmp1.data , items = c("item1", "item2", "item3"), cov = "grp")
-Exmp1.output$DIF.Uniforme
-
-# Specific output: SEPC for uniform DIF
-Exmp1.output$SEPC.uDIF
-
-# Specific output: SEPC for non-uniform DIF
-Exmp1.output$SEPC.nuDIF
-
-### Example 2: Using the 'bfi' dataset from the 'psych' package
+### Example 2: Using the 'bfi' dataset from the 'psych' package -------------
 library(psych)
 data("bfi")
 
-# Select Neuroticism items + gender as covariate
 data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
 data.bfi <- data.bfi[complete.cases(data.bfi), ]
 data.bfi$gender <- as.factor(data.bfi$gender)
 
 neuro.items <- c("N1","N2","N3","N4","N5")
 
-# Run DIF analysis
-res.bfi <- piRFA(data = data.bfi,
-                 items = neuro.items,
-                 cov = "gender",
-                 lvname = "Neuroticism",
-                 est = "MLM")
-
-# Global DIF results
+# Run DIF analysis with Oort adjustment
+res.bfi <- piRFA(data = data.bfi, items = neuro.items, cov = "gender",
+                 lvname = "Neuroticism", est = "MLM",
+                 Oort.adj = TRUE, p.crit = 0.05)
 res.bfi$DIF.Global
-
-# SEPC for uniform DIF
-res.bfi$SEPC.uDIF
 
 }
 \references{
-(mismos que ya tenías…)
-}
-\seealso{
-\code{\link[lavaan]{cfa}}, \code{\link[scripty]{mimic}}, \code{\link[scripty]{prods}}, \code{\link{piRFA.plot}}
+Kim, E. S., Yoon, M., & Lee, T. (2011). Testing Measurement Invariance Using MIMIC:
+Likelihood Ratio Test With a Critical Value Adjustment. *Educational and Psychological Measurement, 72*(3), 469–492.
+https://doi.org/10.1177/0013164411427395 (Original work published 2012)
+
+Oort, F. J. (1992). Using restricted factor analysis to detect item bias. *Psychological Methods*, 37, 547–567.
+Oort, F. J. (1998). Simulation study of item bias detection with restricted factor analysis.
+*Structural Equation Modeling*, 5, 107–124.
+French, B. F., & Finch, W. H. (2008). Multigroup confirmatory factor analysis: Locating the invariant referent variables.
+*Structural Equation Modeling*, 15(1), 96–113.
+Stark, S., Chernyshenko, O. S., & Drasgow, F. (2006). Detecting differential item functioning with confirmatory factor analysis and item response theory: Toward a unified strategy.
+*Journal of Applied Psychology*, 91(6), 1292–1306.
+Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted factor analysis models to detect nonuniform measurement bias.
+In *Quantitative Psychology* (pp. 235–245). Springer.
+Kolbe, L., & Jorgensen, T. D. (2019). Using restricted factor analysis to select anchor items and detect differential item functioning.
+*Behavior Research Methods*, 51, 138–151.
+Kolbe, L., Jorgensen, T. D., & Molenaar, D. (2020). The Impact of Unmodeled Heteroskedasticity on Assessing Measurement Invariance in Single-group Models.
+*Structural Equation Modeling*, 28(1), 82–98.
+Whittaker, T. A. (2012). Estimation of Standardized Expected Parameter Change for DIF Detection.
+*Educational and Psychological Measurement*, 72(3), 342-357.
+Garnier-Villarreal, M., & Jorgensen, T. D. (2024). Evaluating Local Model Misspecification with Modification Indices in Bayesian Structural Equation Modeling.
+*Structural Equation Modeling*, 1–15.
 }
