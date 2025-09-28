@@ -126,7 +126,6 @@ piRFA.profile <- function(resultados, data, item, cov,
       irow <- pe[pe$op == "~1" & pe$lhs == item, , drop = FALSE]
       if (nrow(irow) > 0) {
         if (parType == "std") {
-          # Por convención, intercepto estandarizado = 0 si std.all es NA
           val_std <- get1(irow$std.all)
           if (!is.na(val_std)) {
             intercept <- val_std
@@ -150,7 +149,6 @@ piRFA.profile <- function(resultados, data, item, cov,
           "\n  Interaction = ", round(interaction, 4),
           "\n  parType     = ", parType)
 
-  # -------- Predicciones --------
   theta_seq <- seq(thetaRange[1], thetaRange[2], length.out = nPoints)
   pred_df <- do.call(rbind, lapply(groups, function(g) {
     group_indicator <- ifelse(g == groups[1], 0, 1)
@@ -166,6 +164,17 @@ piRFA.profile <- function(resultados, data, item, cov,
     pred_df$group <- factor(pred_df$group, levels = groups, labels = labels)
   } else {
     pred_df$group <- factor(pred_df$group, levels = groups)
+  }
+
+  # -------- ThemeOption handling --------
+  if (is.character(themeOption)) {
+    if (exists(themeOption, envir = asNamespace("ggplot2"))) {
+      theme_fun <- get(themeOption, envir = asNamespace("ggplot2"))
+      themeOption <- theme_fun()
+    } else {
+      stop("Unknown theme name: ", themeOption,
+           ". Use a valid ggplot2 theme (e.g., 'theme_classic').")
+    }
   }
 
   # -------- Plot --------
