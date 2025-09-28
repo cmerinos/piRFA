@@ -30,33 +30,56 @@ piRFA.profile <- function(resultados, data, item, cov,
                           theta_range = c(-3, 3),
                           n_points = 200,
                           theme_option = ggplot2::theme_minimal(),
-                          labels = NULL) {
+                          labels = NULL,
+                          warn = TRUE) {
 
-  # Load required package
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("The ggplot2 package is required but not installed.")
   }
 
-  # Build theta sequence
   theta_seq <- seq(from = theta_range[1], to = theta_range[2], length.out = n_points)
 
-  # Get coefficients
   sepc_data <- resultados$SEPC
-  coefs_item <- sepc_data[sepc_data$Item == item, ]
+  coefs_item <- subset(sepc_data, Item == item)
 
-  # Extract parameters
-  intercept   <- coefs_item$EPC[grepl("Intercept", coefs_item$Effect)]
-  loading     <- coefs_item$EPC[grepl("LFac", coefs_item$Effect)]
-  direct      <- coefs_item$EPC[grepl(paste0("~", cov), coefs_item$Effect)]
-  interaction <- coefs_item$EPC[grepl(paste0("LFacX", cov), coefs_item$Effect)]
+  # Helper para asignar por defecto con aviso
+  set_default <- function(x, val, name) {
+    if (length(x) == 0 || is.na(x)) {
+      if (isTRUE(warn)) warning(sprintf("%s for '%s' not found; using %s.", name, item, val))
+      return(val)
+    }
+    x[1]
+  }
 
-  # Defaults
-  if (length(intercept) == 0)   intercept <- 0
-  if (length(loading) == 0)     loading <- 1
-  if (length(direct) == 0)      direct <- 0
-  if (length(interaction) == 0) interaction <- 0
+  use_par_cols <- all(c("lhs","op","rhs") %in% names(coefs_item))
 
-  # Predictions by group
+  if (use_par_cols) {
+    # Nombre del factor latente que carga en el ítem (primero que aparezca)
+    latent_name <- unique(coefs_item$lhs[coefs_item$op == "=~" & coefs_item$rhs == item])[1]
+
+    loading     <- coefs_item$EPC[coefs_item$op == "=~" & coefs_item$rhs == item]
+    intercept   <- coefs_item$EPC[coefs_item$op == "~1" & coefs_item$lhs == item]
+    direct      <- coefs_item$EPC[coefs_item$op == "~"  & coefs_item$lhs == item & coefs_item$rhs == cov]
+
+    inter_name  <- if (!is.na(latent_name)) paste0(latent_name, "X", cov) else paste0("LFacX", cov)
+    interaction <- coefs_item$EPC[coefs_item$op == "~"  & coefs_item$lhs == item & coefs_item$rhs == inter_name]
+
+  } else {
+    # Fallback por regex anclado al ítem (efectos tipo "lhs op rhs" en texto)
+    loading     <- coefs_item$EPC[grepl(paste0("^.*=~\\s*", item, "$"), coefs_item$Effect)]
+    intercept   <- coefs_item$EPC[grepl(paste0("^", item, "\\s*~1$|Intercept"), coefs_item$Effect)]
+    direct      <- coefs_item$EPC[grepl(paste0("^", item, "\\s*~\\s*", cov, "$"), coefs_item$Effect)]
+    # interacción: "<factor>X<cov>" en el lado derecho
+    interaction <- coefs_item$EPC[grepl(paste0("^", item, "\\s*~\\s*.*X", cov, "$"), coefs_item$Effect)]
+  }
+
+  # Defaults + avisos si faltan
+  intercept   <- set_default(intercept,   0, "Intercept")
+  loading     <- set_default(loading,     1, "Loading")
+  direct      <- set_default(direct,      0, "Direct effect")
+  interaction <- set_default(interaction, 0, "Interaction effect")
+
+  # Predicciones por grupo
   groups <- unique(data[[cov]])
   pred_df <- do.call(rbind, lapply(groups, function(g) {
     group_indicator <- ifelse(g == groups[1], 0, 1)
@@ -67,19 +90,16 @@ piRFA.profile <- function(resultados, data, item, cov,
     data.frame(theta = theta, predicted = y_pred, group = as.character(g))
   }))
 
-  # Rename groups if labels are provided
+  # Etiquetas
   if (!is.null(labels)) {
     if (length(labels) != length(unique(pred_df$group))) {
       stop("Length of 'labels' must match the number of groups.")
     }
-    pred_df$group <- factor(pred_df$group,
-                            levels = groups,
-                            labels = labels)
+    pred_df$group <- factor(pred_df$group, levels = groups, labels = labels)
   } else {
     pred_df$group <- factor(pred_df$group, levels = groups)
   }
 
-  # Create the plot
   p <- ggplot2::ggplot(pred_df, ggplot2::aes(x = theta, y = predicted, color = group)) +
     ggplot2::geom_line(linewidth = 1) +
     ggplot2::labs(

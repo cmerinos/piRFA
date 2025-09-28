@@ -12,7 +12,8 @@ piRFA.profile(
   theta_range = c(-3, 3),
   n_points = 200,
   theme_option = ggplot2::theme_minimal(),
-  labels = NULL
+  labels = NULL,
+  warn = TRUE
 )
 }
 \arguments{
