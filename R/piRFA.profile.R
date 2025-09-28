@@ -44,33 +44,37 @@ piRFA.profile <- function(resultados, data, item, cov,
                           n_points = 200,
                           theme_option = ggplot2::theme_minimal()) {
 
-  # Load required package
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("The ggplot2 package is required but not installed.")
   }
 
-  # Build theta sequence
   theta_seq <- seq(from = theta_range[1], to = theta_range[2], length.out = n_points)
 
-  # Get coefficients
   sepc_data <- resultados$SEPC
   coefs_item <- sepc_data[sepc_data$Item == item, ]
 
-  # Extract direct effect (uniform DIF)
-  uniform_effect <- coefs_item$EPC[grepl(cov, coefs_item$Effect)]
+  # Extraer parámetros
+  intercept <- coefs_item$EPC[grepl("Intercept", coefs_item$Effect)]
+  loading   <- coefs_item$EPC[grepl("LFac",     coefs_item$Effect)]
+  direct    <- coefs_item$EPC[grepl(paste0("~", cov), coefs_item$Effect)]
+  interaction <- coefs_item$EPC[grepl(paste0("LFacX", cov), coefs_item$Effect)]
 
-  # Extract interaction effect (non-uniform DIF)
-  interaction_effect <- coefs_item$EPC[grepl(paste0("LFacX", cov), coefs_item$Effect)]
+  # Defaults si no se encuentra
+  if (length(intercept) == 0) intercept <- 0
+  if (length(loading) == 0)   loading <- 1
+  if (length(direct) == 0)    direct <- 0
+  if (length(interaction) == 0) interaction <- 0
 
-  # Simulate predicted responses
+  groups <- unique(data[[cov]])
   pred_df <- data.frame()
 
-  for (g in unique(data[[cov]])) {
+  for (g in groups) {
+    group_indicator <- ifelse(g == groups[1], 0, 1)
     theta <- theta_seq
-    direct <- ifelse(length(uniform_effect) > 0, uniform_effect, 0)
-    interaction <- ifelse(length(interaction_effect) > 0, interaction_effect, 0)
 
-    y_pred <- theta + direct * (data[[cov]][1] == g) + interaction * theta * (data[[cov]][1] == g)
+    y_pred <- intercept + loading * theta +
+      direct * group_indicator +
+      interaction * theta * group_indicator
 
     temp_df <- data.frame(
       theta = theta,
@@ -81,15 +85,9 @@ piRFA.profile <- function(resultados, data, item, cov,
     pred_df <- rbind(pred_df, temp_df)
   }
 
-  # Rename factor levels if binary
-  if (length(unique(data[[cov]])) == 2) {
-    levels <- unique(data[[cov]])
-    pred_df$group <- factor(pred_df$group,
-                            levels = levels,
-                            labels = c("Group 1", "Group 2"))
-  }
+  # Mantener nombres originales
+  pred_df$group <- factor(pred_df$group, levels = groups)
 
-  # Create the plot
   p <- ggplot2::ggplot(pred_df, ggplot2::aes(x = theta, y = predicted, color = group)) +
     ggplot2::geom_line(linewidth = 1) +
     ggplot2::labs(
@@ -100,5 +98,5 @@ piRFA.profile <- function(resultados, data, item, cov,
     ) +
     theme_option
 
-  print(p)
+  return(p)
 }
