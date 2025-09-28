@@ -30,6 +30,16 @@
 #' The formula used is a linear prediction:
 #' \deqn{y = intercept + loading * theta + direct_effect * group + interaction * (theta × group)}
 #'
+#' The choice of `parType` determines how the parameters are applied:
+#' \itemize{
+#'   \item `"none"`: Parameters are fixed at `Intercept = 0`, `Loading = 1`, so the plot only
+#'   reflects the *direct* and *interaction* effects. This isolates the DIF component.
+#'   \item `"unstd"`: Uses unstandardized estimates (`est`) from the fitted `lavaan` model,
+#'   corresponding to the original observed scale of the item.
+#'   \item `"std"`: Uses standardized estimates (`std.all`) from the fitted `lavaan` model,
+#'   making the prediction curves directly comparable across items in a standardized metric.
+#' }
+#'
 #' This function assumes a linear model and is best interpreted when DIF is suspected or detected.
 #'
 #' @return A `ggplot2` object showing the DIF profile for PI-MIMIC output
