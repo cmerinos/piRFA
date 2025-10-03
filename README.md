@@ -8,7 +8,7 @@
 
 ## Installation
 
-You can install the development version of PIRFA like so:
+You can install the development version of piRFA like so:
 
 ``` r
 # Install from GitHub
