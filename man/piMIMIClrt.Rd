@@ -71,31 +71,3 @@ Additionally, ΔR² is computed for uniform and non-uniform DIF:
 If \code{Oort.adj = TRUE}, an adjusted critical value is reported alongside the p-values,
 following the correction proposed by Oort (1992, 1998) to control Type I error inflation.
 }
-\examples{
-\dontrun{
-library(psych)
-data("bfi")
-data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
-data.bfi <- data.bfi[complete.cases(data.bfi), ]
-data.bfi$gender <- as.factor(data.bfi$gender)
-
-res.lrt <- piMIMIClrt(data = data.bfi,
-                      items = c("N1","N2","N3","N4","N5"),
-                      cov = "gender",
-                      lvname = "Neuroticism",
-                      est = "MLM")
-
-res.lrt$LRT.Global
-res.lrt$DeltaR2.uDIF
-}
-
-}
-\references{
-Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted factor analysis
-models to detect nonuniform measurement bias. In *Quantitative Psychology* (pp. 235–245). Springer.
-
-Oort, F. J. (1992). Using restricted factor analysis to detect item bias. *Methodika*, 6, 150–160.
-
-Oort, F. J. (1998). Simulation study of item bias detection with restricted factor analysis.
-*Structural Equation Modeling*, 5, 107–124.
-}

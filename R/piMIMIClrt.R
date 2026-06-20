@@ -50,34 +50,7 @@
 #' If \code{Oort.adj = TRUE}, an adjusted critical value is reported alongside the p-values,
 #' following the correction proposed by Oort (1992, 1998) to control Type I error inflation.
 #'
-#' @references
-#' Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted factor analysis
-#' models to detect nonuniform measurement bias. In *Quantitative Psychology* (pp. 235–245). Springer.
-#'
-#' Oort, F. J. (1992). Using restricted factor analysis to detect item bias. *Methodika*, 6, 150–160.
-#'
-#' Oort, F. J. (1998). Simulation study of item bias detection with restricted factor analysis.
-#' *Structural Equation Modeling*, 5, 107–124.
-#'
-#' @examples
-#' \dontrun{
-#' library(psych)
-#' data("bfi")
-#' data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
-#' data.bfi <- data.bfi[complete.cases(data.bfi), ]
-#' data.bfi$gender <- as.factor(data.bfi$gender)
-#'
-#' res.lrt <- piMIMIClrt(data = data.bfi,
-#'                       items = c("N1","N2","N3","N4","N5"),
-#'                       cov = "gender",
-#'                       lvname = "Neuroticism",
-#'                       est = "MLM")
-#'
-#' res.lrt$LRT.Global
-#' res.lrt$DeltaR2.uDIF
-#' }
-#'
-#' @importFrom lavaan cfa lavTestLRT parameterEstimates
+#' @importFrom lavaan cfa lavTestLRT lavTestScore parameterEstimates inspect
 #' @importFrom scripty prods
 #' @export
 piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
@@ -119,24 +92,16 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   )
 
   # ---- Function to fit a model with constraints for a given item ----
-  #   type: "none"    -> both direct and interaction fixed to 0 (M1)
-  #         "direct"  -> interaction fixed to 0 (M2)
-  #         "full"    -> no constraints (M3)
   fit_item_model <- function(item, type = c("full", "direct", "none")) {
     type <- match.arg(type)
 
-    # Start with base syntax
     mod_syntax <- base_syntax
 
-    # Add constraints for the studied item
     if (type == "none") {
-      # Fix both direct and interaction to 0
       constr <- paste0(item, " ~ 0*", cov_lat, " + 0*", int_fac)
     } else if (type == "direct") {
-      # Only interaction fixed to 0
       constr <- paste0(item, " ~ 0*", int_fac)
-    } else { # "full"
-      # No constraints (free both)
+    } else {
       constr <- NULL
     }
 
@@ -144,7 +109,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       mod_syntax <- paste(mod_syntax, constr, sep = "\n")
     }
 
-    # Fit the model
     fit <- tryCatch(
       lavaan::cfa(mod_syntax,
                   data = df_pi,
@@ -168,16 +132,29 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     stop("Unrestricted model (M3) did not converge.")
   }
 
-  # Extract R² from M3 (unrestricted)
-  r2_m3 <- lavaan::inspect(fit_m3_full, "rsquare")[items]
+  # Extract R² from M3 (unrestricted) - ensure it's a named vector
+  r2_m3 <- lavaan::inspect(fit_m3_full, "rsquare")
+  # If it's a matrix or data.frame, convert to vector
+  if (is.matrix(r2_m3) || is.data.frame(r2_m3)) {
+    r2_m3 <- as.vector(r2_m3)
+    names(r2_m3) <- items
+  }
 
   # ---- Initialize output containers ----
   n_items <- length(items)
+
+  # LRT tables (with correct column names)
   lrt_global <- data.frame(Item = items, global.chi2 = NA_real_, df = 2L, p.value = NA_real_)
   lrt_uniforme <- data.frame(Item = items, uniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
   lrt_nouniforme <- data.frame(Item = items, nouniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
+
+  # Delta R² tables (single column)
   delta_r2_u <- data.frame(Item = items, delta_R2 = NA_real_)
   delta_r2_nu <- data.frame(Item = items, delta_R2 = NA_real_)
+
+  # ---- Determine if we can use LRT or need Score tests ----
+  # For non-ML estimators, lavTestLRT may not work; use lavTestScore instead
+  use_score <- !grepl("^ML$", est, ignore.case = TRUE)
 
   # ---- Loop over items ----
   for (i in seq_along(items)) {
@@ -187,67 +164,114 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     fit_m1 <- fit_item_model(item, type = "none")
     fit_m2 <- fit_item_model(item, type = "direct")
 
-    # If either fails, skip to next item
     if (is.null(fit_m1) || is.null(fit_m2)) {
       warning(paste("Models for item", item, "did not converge. Skipping."))
       next
     }
 
-    # Extract R² from M1 and M2
-    r2_m1 <- lavaan::inspect(fit_m1, "rsquare")[item]
-    r2_m2 <- lavaan::inspect(fit_m2, "rsquare")[item]
+    # Extract R² from M1 and M2 (ensure scalar)
+    r2_m1_val <- lavaan::inspect(fit_m1, "rsquare")
+    r2_m2_val <- lavaan::inspect(fit_m2, "rsquare")
+
+    # Extract the value for the specific item
+    if (is.matrix(r2_m1_val) || is.data.frame(r2_m1_val)) {
+      r2_m1 <- r2_m1_val[item, item]  # Adjust if needed
+    } else {
+      r2_m1 <- r2_m1_val[item]
+    }
+    if (is.matrix(r2_m2_val) || is.data.frame(r2_m2_val)) {
+      r2_m2 <- r2_m2_val[item, item]
+    } else {
+      r2_m2 <- r2_m2_val[item]
+    }
 
     # Compute ΔR²
-    delta_r2_u[i, "delta_R2"] <- r2_m2 - r2_m1          # uniform: direct effect added
-    delta_r2_nu[i, "delta_R2"] <- r2_m3[item] - r2_m2   # non-uniform: interaction added
+    delta_r2_u[i, "delta_R2"] <- r2_m2 - r2_m1
+    delta_r2_nu[i, "delta_R2"] <- r2_m3[item] - r2_m2
 
-    # Likelihood Ratio Tests
-    # Global: M1 vs M3 (2 df)
-    lrt_global_i <- tryCatch(
-      lavaan::lavTestLRT(fit_m1, fit_m3_full, method = "default"),
-      error = function(e) NULL
-    )
-    if (!is.null(lrt_global_i) && nrow(lrt_global_i) >= 2) {
-      lrt_global$global.chi2[i] <- lrt_global_i[2, "Chisq diff"]
-      lrt_global$df[i] <- lrt_global_i[2, "Df diff"]
-      lrt_global$p.value[i] <- lrt_global_i[2, "Pr(>Chisq)"]
-    }
+    # ---- Perform tests ----
+    if (use_score) {
+      # Use Score tests (like piMIMICscore)
+      # Global test: add both parameters
+      params_global <- c(paste0(item, "~", cov_lat), paste0(item, "~", int_fac))
+      score_global <- tryCatch(
+        lavaan::lavTestScore(fit_m1, add = params_global)$test,
+        error = function(e) NULL
+      )
+      if (!is.null(score_global) && nrow(score_global) > 0) {
+        lrt_global[i, "global.chi2"] <- score_global[1, "X2"]
+        lrt_global[i, "df"] <- score_global[1, "df"]
+        lrt_global[i, "p.value"] <- score_global[1, "p"]
+      }
 
-    # Uniform: M1 vs M2 (1 df)
-    lrt_unif_i <- tryCatch(
-      lavaan::lavTestLRT(fit_m1, fit_m2, method = "default"),
-      error = function(e) NULL
-    )
-    if (!is.null(lrt_unif_i) && nrow(lrt_unif_i) >= 2) {
-      lrt_uniforme$uniforme.chi2[i] <- lrt_unif_i[2, "Chisq diff"]
-      lrt_uniforme$df[i] <- lrt_unif_i[2, "Df diff"]
-      lrt_uniforme$p.value[i] <- lrt_unif_i[2, "Pr(>Chisq)"]
-    }
+      # Uniform test: add only direct effect (from M1)
+      score_unif <- tryCatch(
+        lavaan::lavTestScore(fit_m1, add = paste0(item, "~", cov_lat))$test,
+        error = function(e) NULL
+      )
+      if (!is.null(score_unif) && nrow(score_unif) > 0) {
+        lrt_uniforme[i, "uniforme.chi2"] <- score_unif[1, "X2"]
+        lrt_uniforme[i, "df"] <- score_unif[1, "df"]
+        lrt_uniforme[i, "p.value"] <- score_unif[1, "p"]
+      }
 
-    # Non-uniform: M2 vs M3 (1 df)
-    lrt_nounif_i <- tryCatch(
-      lavaan::lavTestLRT(fit_m2, fit_m3_full, method = "default"),
-      error = function(e) NULL
-    )
-    if (!is.null(lrt_nounif_i) && nrow(lrt_nounif_i) >= 2) {
-      lrt_nouniforme$nouniforme.chi2[i] <- lrt_nounif_i[2, "Chisq diff"]
-      lrt_nouniforme$df[i] <- lrt_nounif_i[2, "Df diff"]
-      lrt_nouniforme$p.value[i] <- lrt_nounif_i[2, "Pr(>Chisq)"]
+      # Non-uniform test: add interaction (from M2)
+      score_nu <- tryCatch(
+        lavaan::lavTestScore(fit_m2, add = paste0(item, "~", int_fac))$test,
+        error = function(e) NULL
+      )
+      if (!is.null(score_nu) && nrow(score_nu) > 0) {
+        lrt_nouniforme[i, "nouniforme.chi2"] <- score_nu[1, "X2"]
+        lrt_nouniforme[i, "df"] <- score_nu[1, "df"]
+        lrt_nouniforme[i, "p.value"] <- score_nu[1, "p"]
+      }
+
+    } else {
+      # Use LRT (only for ML estimator)
+      # Global: M1 vs M3
+      lrt_global_i <- tryCatch(
+        lavaan::lavTestLRT(fit_m1, fit_m3_full, method = "satorra.bentler.2001"),
+        error = function(e) NULL
+      )
+      if (!is.null(lrt_global_i) && nrow(lrt_global_i) >= 2) {
+        lrt_global[i, "global.chi2"] <- lrt_global_i[2, "Chisq diff"]
+        lrt_global[i, "df"] <- lrt_global_i[2, "Df diff"]
+        lrt_global[i, "p.value"] <- lrt_global_i[2, "Pr(>Chisq)"]
+      }
+
+      # Uniform: M1 vs M2
+      lrt_unif_i <- tryCatch(
+        lavaan::lavTestLRT(fit_m1, fit_m2, method = "satorra.bentler.2001"),
+        error = function(e) NULL
+      )
+      if (!is.null(lrt_unif_i) && nrow(lrt_unif_i) >= 2) {
+        lrt_uniforme[i, "uniforme.chi2"] <- lrt_unif_i[2, "Chisq diff"]
+        lrt_uniforme[i, "df"] <- lrt_unif_i[2, "Df diff"]
+        lrt_uniforme[i, "p.value"] <- lrt_unif_i[2, "Pr(>Chisq)"]
+      }
+
+      # Non-uniform: M2 vs M3
+      lrt_nounif_i <- tryCatch(
+        lavaan::lavTestLRT(fit_m2, fit_m3_full, method = "satorra.bentler.2001"),
+        error = function(e) NULL
+      )
+      if (!is.null(lrt_nounif_i) && nrow(lrt_nounif_i) >= 2) {
+        lrt_nouniforme[i, "nouniforme.chi2"] <- lrt_nounif_i[2, "Chisq diff"]
+        lrt_nouniforme[i, "df"] <- lrt_nounif_i[2, "Df diff"]
+        lrt_nouniforme[i, "p.value"] <- lrt_nounif_i[2, "Pr(>Chisq)"]
+      }
     }
   }
 
   # ---- Apply Oort adjustment if requested ----
   if (Oort.adj) {
-    # Obtain baseline chi2 and df from M3
     baseline <- fit_m3_full@test$standard
     chi0 <- as.numeric(baseline[["stat"]])
     df0 <- as.numeric(baseline[["df"]])
 
-    # Function to add adjusted critical value to a table
     add_oort <- function(df_table, df_col = "df") {
       if (is.null(df_table) || nrow(df_table) == 0) return(df_table)
       df_vals <- df_table[[df_col]]
-      # K is the original critical value at p.crit
       K <- qchisq(1 - p.crit, df_vals)
       crit.Oort <- (chi0 / (K + df0 - 1)) * K
       df_table$crit.Oort <- round(crit.Oort, 3)
