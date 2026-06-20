@@ -23,8 +23,8 @@
 #'   \item \code{LRT.Global} - data.frame with columns: Item, global.chi2, df, p.value.
 #'   \item \code{LRT.Uniforme} - data.frame with columns: Item, uniforme.chi2, df, p.value.
 #'   \item \code{LRT.NoUniforme} - data.frame with columns: Item, nouniforme.chi2, df, p.value.
-#'   \item \code{DeltaR2.uDIF} - data.frame with columns: Item, delta_R2_uniforme.
-#'   \item \code{DeltaR2.nuDIF} - data.frame with columns: Item, delta_R2_nouniforme.
+#'   \item \code{DeltaR2.uDIF} - data.frame with columns: Item, delta_R2.
+#'   \item \code{DeltaR2.nuDIF} - data.frame with columns: Item, delta_R2.
 #'   \item \code{fit} - the unrestricted (Model 3) lavaan object, for further inspection or plotting.
 #' }
 #'
@@ -111,7 +111,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   int_fac <- paste0("LFacX", cov)
 
   # ---- Base model syntax (without DIF effects) ----
-  # This is the skeleton we will modify for each item.
   base_syntax <- paste0(
     lvname, " =~ ", paste(items, collapse = " + "), "\n",
     cov_lat, " =~ ", cov, "\n",
@@ -157,9 +156,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   }
 
   # ---- Fit unrestricted model (M3) once ----
-  fit_m3 <- fit_item_model(items[1], type = "full")  # placeholder, will be refitted per item
-  # But we need the unrestricted model without per-item constraints; actually it's the same for all items.
-  # Fit it once with the base syntax (no constraints).
   fit_m3_full <- tryCatch(
     lavaan::cfa(base_syntax,
                 data = df_pi,
@@ -180,8 +176,8 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   lrt_global <- data.frame(Item = items, global.chi2 = NA_real_, df = 2L, p.value = NA_real_)
   lrt_uniforme <- data.frame(Item = items, uniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
   lrt_nouniforme <- data.frame(Item = items, nouniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
-  delta_r2_u <- data.frame(Item = items, delta_R2_uniforme = NA_real_)
-  delta_r2_nu <- data.frame(Item = items, delta_R2_nouniforme = NA_real_)
+  delta_r2_u <- data.frame(Item = items, delta_R2 = NA_real_)
+  delta_r2_nu <- data.frame(Item = items, delta_R2 = NA_real_)
 
   # ---- Loop over items ----
   for (i in seq_along(items)) {
@@ -202,8 +198,8 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     r2_m2 <- lavaan::inspect(fit_m2, "rsquare")[item]
 
     # Compute ΔR²
-    delta_r2_u[i] <- r2_m2 - r2_m1          # uniform: direct effect added
-    delta_r2_nu[i] <- r2_m3[item] - r2_m2   # non-uniform: interaction added
+    delta_r2_u[i, "delta_R2"] <- r2_m2 - r2_m1          # uniform: direct effect added
+    delta_r2_nu[i, "delta_R2"] <- r2_m3[item] - r2_m2   # non-uniform: interaction added
 
     # Likelihood Ratio Tests
     # Global: M1 vs M3 (2 df)
@@ -212,7 +208,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       error = function(e) NULL
     )
     if (!is.null(lrt_global_i) && nrow(lrt_global_i) >= 2) {
-      # The second row corresponds to the difference
       lrt_global$global.chi2[i] <- lrt_global_i[2, "Chisq diff"]
       lrt_global$df[i] <- lrt_global_i[2, "Df diff"]
       lrt_global$p.value[i] <- lrt_global_i[2, "Pr(>Chisq)"]
@@ -278,7 +273,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   return(out)
 }
 
-# S3 print method (optional, but nice)
 #' @export
 print.piMIMIClrt <- function(x, ...) {
   cat("PI-MIMIC LRT Results\n")

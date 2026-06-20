@@ -37,8 +37,8 @@ A list with the following components:
   \item \code{LRT.Global} - data.frame with columns: Item, global.chi2, df, p.value.
   \item \code{LRT.Uniforme} - data.frame with columns: Item, uniforme.chi2, df, p.value.
   \item \code{LRT.NoUniforme} - data.frame with columns: Item, nouniforme.chi2, df, p.value.
-  \item \code{DeltaR2.uDIF} - data.frame with columns: Item, delta_R2_uniforme.
-  \item \code{DeltaR2.nuDIF} - data.frame with columns: Item, delta_R2_nouniforme.
+  \item \code{DeltaR2.uDIF} - data.frame with columns: Item, delta_R2.
+  \item \code{DeltaR2.nuDIF} - data.frame with columns: Item, delta_R2.
   \item \code{fit} - the unrestricted (Model 3) lavaan object, for further inspection or plotting.
 }
 }
