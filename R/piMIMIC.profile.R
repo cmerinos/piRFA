@@ -3,10 +3,10 @@
 #' This function plots the expected response curves (linear prediction) across levels of the latent trait (θ)
 #' for each group defined by a covariate. It is useful to visually inspect DIF—especially non-uniform DIF.
 #'
-#' @param resultados Output object from the `piRFA()` function.
-#' @param data The dataset used in the `piRFA()` analysis.
+#' @param resultados Output object from the `piMIMIC()` function.
+#' @param data The dataset used in the `piMIMIC()` analysis.
 #' @param item The name of the item to be plotted (as a character string).
-#' @param cov The name of the grouping covariate used in `piRFA()` (as a character string).
+#' @param cov The name of the grouping covariate used in `piMIMIC()` (as a character string).
 #' @param thetaRange A numeric vector of length 2 specifying the latent trait range (default is -3 to 3).
 #' @param nPoints Number of evaluation points along the latent trait (default = 200).
 #' @param themeOption  A `ggplot2` theme object to customize the plot appearance.
@@ -23,7 +23,7 @@
 #' }
 #'
 #' @details
-#' The function uses the parameter estimates from `piRFA()` to compute predicted responses
+#' The function uses the parameter estimates from `piMIMIC()` to compute predicted responses
 #' for each group along a latent variable continuum. It is especially helpful in visualizing
 #' non-uniform DIF, where the slope or pattern of response varies by group.
 #'
@@ -61,20 +61,20 @@
 #' neuro.items <- c("N1", "N2", "N3", "N4", "N5")
 #'
 #' library(lavaan)
-#' resultado.gender <- piRFA(data = data.bfi,
+#' resultado.gender <- piMIMIC(data = data.bfi,
 #'                           items = neuro.items,
 #'                           cov = "gender",
 #'                           lvname = "Neuroticismo",
 #'                           est = "ulsmv", Oort.adj = FALSE)
 #'
 #' Basic profile plot
-#' piRFA.profile(resultados = resultado.gender,
+#' piMIMIC.profile(resultados = resultado.gender,
 #'               data = data.bfi,
 #'               item = "N3",
 #'               cov = "gender")
 #'
 #' # Customized plot with labels and parameter type
-#' piRFA.profile(resultados = resultado.gender,
+#' piMIMIC.profile(resultados = resultado.gender,
 #'               data = data.bfi,
 #'               item = "N1",
 #'               cov = "gender",
@@ -85,7 +85,7 @@
 #' }
 #'
 #' @export
-piRFA.profile <- function(resultados, data, item, cov,
+piMIMIC.profile <- function(resultados, data, item, cov,
                           thetaRange = c(-3, 3),
                           nPoints = 200,
                           themeOption = ggplot2::theme_minimal(),

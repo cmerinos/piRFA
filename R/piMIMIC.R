@@ -1,10 +1,10 @@
 #' @title Function to Analyze DIF with PI-RFA/MIMIC (Product of Indicators)
 #'
 #' @description
-#' The `piRFA` function analyzes Differential Item Functioning (DIF)
+#' The `piMIMIC` function analyzes Differential Item Functioning (DIF)
 #' using the multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI).
 #' It relies on `lavaan` and `scripty`. Uniform and non-uniform DIF can be evaluated in a measurement scale,
-#' through statistical tests and an effect size approximation.
+#' through statistical tests and an effect size approximation with SPEC of releases parameter.
 #'
 #' @param data DataFrame containing items and the covariate.
 #' @param items Vector of item names within `data`.
@@ -79,7 +79,7 @@
 #'   item3 = sample(1:5, 100, replace = TRUE),
 #'   item4 = sample(1:5, 100, replace = TRUE))
 #'
-#' res1 <- piRFA(data = Exmp1.data , items = c("item1","item2","item3"), cov = "grp")
+#' res1 <- piMIMIC(data = Exmp1.data , items = c("item1","item2","item3"), cov = "grp")
 #' res1$DIF.Global
 #'
 #' ### Example 2: Using the 'bfi' dataset from the 'psych' package -------------
@@ -93,7 +93,7 @@
 #' neuro.items <- c("N1","N2","N3","N4","N5")
 #'
 #' # Run DIF analysis with Oort adjustment
-#' res.bfi <- piRFA(data = data.bfi, items = neuro.items, cov = "gender",
+#' res.bfi <- piMIMIC(data = data.bfi, items = neuro.items, cov = "gender",
 #'                  lvname = "Neuroticism", est = "MLM",
 #'                  Oort.adj = TRUE, p.crit = 0.05)
 #' res.bfi$DIF.Global
@@ -132,7 +132,7 @@
 #' @importFrom lavaan cfa lavTestScore parameterestimates
 #' @importFrom scripty prods mimicparam
 #' @export
-piRFA <- function(data, items, cov, lvname = "LatFact", est = "MLM",
+piMIMIC <- function(data, items, cov, lvname = "LatFact", est = "MLM",
                   Oort.adj = FALSE, p.crit = 0.05) {
 
   if (!is.character(est) || nchar(est) == 0) {

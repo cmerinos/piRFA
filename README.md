@@ -1,19 +1,19 @@
-# piRFA: R package for DIF detection using Product of Indicators (PI) for MIMIC/RFA Models
+# piMIMIC: R package for DIF detection using Product of Indicators (PI) for MIMIC Models
 
 <!-- badges: start -->
 
 <!-- badges: end -->
 
-**piRFA** is an R package for detecting **Differential Item Functioning (DIF)** using the **Product of Indicators (PI)** approach within a **MIMIC**/**RFA** framework (**Multiple Indicators Multiple Causes**/**Restricted Factor Analysis**).
+**piMIMIC** is an R package for detecting **Differential Item Functioning (DIF)** using the **Product of Indicators (PI)** approach within a **MIMIC**/**RFA** framework (**Multiple Indicators Multiple Causes**/**Restricted Factor Analysis**).
 
 ## Installation
 
-You can install the development version of piRFA like so:
+You can install the development version of piMIMIC like so:
 
 ``` r
 # Install from GitHub
-devtools::install_github("cmerinos/piRFA")
-library(piRFA)
+devtools::install_github("cmerinos/piMIMIC")
+library(piMIMIC)
 ```
 
 ## Example
@@ -21,7 +21,7 @@ library(piRFA)
 ### Basic example:
 
 ``` r
-library(piRFA)
+library(piMIMIC)
 
 # Load data
 set.seed(123)
@@ -32,7 +32,7 @@ example_data <- data.frame(
   item3 = sample(1:5, 100, replace = TRUE))
 
 # Run DIF analysis
-results <- piRFA(data = example_data, items = c("item1", "item2", "item3"), cov = "group")
+results <- piMIMIC(data = example_data, items = c("item1", "item2", "item3"), cov = "group")
 
 # Show output
 results
@@ -43,7 +43,7 @@ print(results$SEPC)
 
 
 # Plot results
-piRFA.plot(results, cov = "group")
+piMIMIC.plot(results, cov = "group")
 ```
 
 ## References
