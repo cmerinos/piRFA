@@ -4,7 +4,19 @@
 \alias{piMIMIClrt}
 \title{DIF analysis with PI-MIMIC using Likelihood Ratio Tests (LRT)}
 \usage{
-piMIMIClrt(data, items, cov, lvname = "LatFact", est = "MLM")
+piMIMIClrt(
+  data,
+  items,
+  cov,
+  lvname = "LatFact",
+  est = "MLM",
+  anchor = NULL,
+  Oort.adj = FALSE,
+  p.crit = 0.05,
+  return_models = FALSE,
+  adjust = "none",
+  ...
+)
 }
 \arguments{
 \item{data}{Data frame containing items and the covariate.}
@@ -16,34 +28,56 @@ piMIMIClrt(data, items, cov, lvname = "LatFact", est = "MLM")
 \item{lvname}{Name of the latent variable (default "LatFact").}
 
 \item{est}{Estimator for lavaan (default "MLM"; can be "ML", "ULS", etc.).}
+
+\item{anchor}{Optional: `NULL` (use last two items), `"none"` (no anchors),
+or a character vector of item names to use as anchors.}
+
+\item{Oort.adj}{Logical; if `TRUE`, applies Oort's critical value adjustment.}
+
+\item{p.crit}{Numeric; significance level for the Oort adjustment (default 0.05).}
+
+\item{return_models}{Logical; if `TRUE`, returns the fitted model objects.}
+
+\item{adjust}{Character; p-value adjustment method passed to `p.adjust`
+(e.g., "bonferroni", "holm", "fdr"). Default "none".}
+
+\item{...}{Additional arguments passed to `lavaan::cfa`.}
 }
 \value{
 A list with:
-\item{DIF.Global}{Global test (2 df) for each item: Chi2, df, p.value.}
-\item{DIF.Uniforme}{Uniform DIF test (1 df).}
-\item{DIF.NoUniforme}{Non-uniform DIF test (1 df).}
-\item{DeltaR2.uDIF}{Change in R² (unrestricted - restricted) for uniform DIF.}
-\item{DeltaR2.nuDIF}{Change in R² for non-uniform DIF.}
-\item{fit}{Unrestricted lavaan model object.}
+\item{DIF.Global}{Data frame: Item, Chi2 (2 df), p.value, and crit.Oort if adjusted.}
+\item{DIF.Uniforme}{Data frame: Item, Chi2 (1 df), p.value, and crit.Oort if adjusted.}
+\item{DIF.NoUniforme}{Data frame: Item, Chi2 (1 df), p.value, and crit.Oort if adjusted.}
+\item{DeltaR2.Global}{Data frame: Item, DeltaR² (full vs no‑DIF model).}
+\item{DeltaR2.uDIF}{Data frame: Item, DeltaR² (full vs b=0 model).}
+\item{DeltaR2.nuDIF}{Data frame: Item, DeltaR² (full vs c=0 model).}
+\item{fit}{The fitted unrestricted (full) lavaan object.}
+\item{constrained_fits}{If `return_models=TRUE`, a nested list of fitted models.}
 }
 \description{
 Implements the product indicator (PI) approach for MIMIC models to detect
-uniform and non-uniform DIF. Uses LRT between unrestricted and restricted
-models (fixing DIF parameters to zero) and reports change in R² as effect size.
-Follows the syntax and logic of Kolbe & Jorgensen (2018), Table 2.
+uniform and non‑uniform DIF. Uses LRT between unrestricted and restricted
+models and reports change in R² as effect size. Optionally applies Oort's
+critical value adjustment to control Type I error inflation. Follows the
+syntax and logic of Kolbe & Jorgensen (2018), Table 2.
 }
-\examples{
-\dontrun{
-library(psych)
-data(bfi)
-data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
-data.bfi <- data.bfi[complete.cases(data.bfi), ]
-data.bfi$gender <- as.factor(data.bfi$gender)
-neuro.items <- c("N1","N2","N3","N4","N5")
-res <- piMIMIClrt(data = data.bfi, items = neuro.items,
-                  cov = "gender", lvname = "Neuroticism", est = "MLM")
-res$DIF.Global
-res$DeltaR2.uDIF
-}
+\details{
+The Oort adjustment modifies the critical chi-square value:
+\deqn{K' = (χ²₀ / (K + df₀ - 1)) * K}
+where χ²₀ and df₀ are from the baseline (full invariance) model, and K is
+the original critical value. This adjustment is recommended when the baseline
+model shows evidence of misfit (χ²₀/df₀ > 1), as it helps control Type I error.
 
+**Anchor items**: At least two anchor items are recommended for identification,
+but the function allows one or zero anchors (use `anchor = "none"`). With fewer
+than two anchors, a warning is issued, but the model may still converge because
+the latent factor is identified by fixing the first loading to 1 (default in lavaan).
+}
+\references{
+Oort, F. J. (1998). Simulation study of item bias detection with restricted
+factor analysis. *Structural Equation Modeling, 5*, 107–124.
+
+Kolbe, L., & Jorgensen, T. D. (2018). Using product indicators in restricted
+factor analysis models to detect nonuniform measurement bias.
+In *Quantitative Psychology* (pp. 235–245). Springer.
 }
