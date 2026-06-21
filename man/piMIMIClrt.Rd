@@ -41,7 +41,7 @@ data.bfi <- data.bfi[complete.cases(data.bfi), ]
 data.bfi$gender <- as.factor(data.bfi$gender)
 neuro.items <- c("N1","N2","N3","N4","N5")
 res <- piMIMIClrt(data = data.bfi, items = neuro.items,
-                   cov = "gender", lvname = "Neuroticism", est = "MLM")
+                  cov = "gender", lvname = "Neuroticism", est = "MLM")
 res$DIF.Global
 res$DeltaR2.uDIF
 }

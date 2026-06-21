@@ -29,7 +29,7 @@
 #' data.bfi$gender <- as.factor(data.bfi$gender)
 #' neuro.items <- c("N1","N2","N3","N4","N5")
 #' res <- piMIMIClrt(data = data.bfi, items = neuro.items,
-#'                    cov = "gender", lvname = "Neuroticism", est = "MLM")
+#'                   cov = "gender", lvname = "Neuroticism", est = "MLM")
 #' res$DIF.Global
 #' res$DeltaR2.uDIF
 #' }
@@ -116,8 +116,14 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
                               estimator = est,
                               meanstructure = TRUE,
                               se = "none")
-    # LRT global (2 df) using standard method (no robust correction needed)
-    lrt_global <- lavaan::lavTestLRT(fit_global, fit_un, method = "standard")
+    # LRT global (2 df) with fallback
+    lrt_global <- tryCatch(
+      lavaan::lavTestLRT(fit_global, fit_un, method = "default"),
+      error = function(e) {
+        warning(paste("For item", it, "(global test): robust LRT failed, using standard LRT."))
+        lavaan::lavTestLRT(fit_global, fit_un, method = "standard")
+      }
+    )
     out_global$Chi2[i] <- lrt_global[2, "Chisq diff"]
     out_global$df[i]   <- lrt_global[2, "Df diff"]
     out_global$p.value[i] <- lrt_global[2, "Pr(>Chisq)"]
@@ -131,7 +137,13 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
                                estimator = est,
                                meanstructure = TRUE,
                                se = "none")
-    lrt_uniform <- lavaan::lavTestLRT(fit_uniform, fit_un, method = "standard")
+    lrt_uniform <- tryCatch(
+      lavaan::lavTestLRT(fit_uniform, fit_un, method = "default"),
+      error = function(e) {
+        warning(paste("For item", it, "(uniform test): robust LRT failed, using standard LRT."))
+        lavaan::lavTestLRT(fit_uniform, fit_un, method = "standard")
+      }
+    )
     out_uniform$Chi2[i] <- lrt_uniform[2, "Chisq diff"]
     out_uniform$df[i]   <- lrt_uniform[2, "Df diff"]
     out_uniform$p.value[i] <- lrt_uniform[2, "Pr(>Chisq)"]
@@ -148,7 +160,13 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
                                  estimator = est,
                                  meanstructure = TRUE,
                                  se = "none")
-    lrt_nouniform <- lavaan::lavTestLRT(fit_nouniform, fit_un, method = "standard")
+    lrt_nouniform <- tryCatch(
+      lavaan::lavTestLRT(fit_nouniform, fit_un, method = "default"),
+      error = function(e) {
+        warning(paste("For item", it, "(non-uniform test): robust LRT failed, using standard LRT."))
+        lavaan::lavTestLRT(fit_nouniform, fit_un, method = "standard")
+      }
+    )
     out_nouniform$Chi2[i] <- lrt_nouniform[2, "Chisq diff"]
     out_nouniform$df[i]   <- lrt_nouniform[2, "Df diff"]
     out_nouniform$p.value[i] <- lrt_nouniform[2, "Pr(>Chisq)"]
