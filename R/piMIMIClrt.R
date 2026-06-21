@@ -3,19 +3,11 @@
 #' @description
 #' Implements Differential Item Functioning (DIF) analysis using the Product of Indicators (PI)
 #' approach within a Multiple-Indicators Multiple-Causes (MIMIC) framework, based on likelihood
-#' ratio tests (LRT) comparing nested models. This function complements `piMIMICscore` (which
+#' ratio tests (LRT) comparing nested models. This function complements `piMIMIC` (which
 #' uses score tests) by providing LRT-based inference and additionally calculating effect sizes
 #' (ΔR²) for uniform and non-uniform DIF.
 #'
-#' @param data DataFrame containing items and the covariate.
-#' @param items Vector of item names within `data`.
-#' @param cov Name of the covariate in `data` (can be categorical or numeric). If categorical, it must be a factor.
-#' @param lvname Name for the latent variable in the model (default is `"LatFact"`).
-#' @param est Abbreviation of the estimator to use (see lavaan documentation). Default is `"MLM"`.
-#' @param Oort.adj Logical. If `TRUE`, applies Oort's critical value adjustment to the chi-square tests.
-#'                 Default is `FALSE`.
-#' @param p.crit Numeric. Significance level used to compute the chi-square critical value.
-#'               Only used if `Oort.adj = TRUE`. Default is `0.05`.
+#' @inheritParams piMIMIC
 #'
 #' @return
 #' A list with the following components:
@@ -28,27 +20,23 @@
 #'   \item \code{fit} - the unrestricted (Model 3) lavaan object, for further inspection or plotting.
 #' }
 #'
-#' @details
-#' The function fits three nested models for each item:
-#' \itemize{
-#'   \item \strong{Model 1 (M1)}: No effects (direct and interaction) are estimated for the studied item.
-#'   \item \strong{Model 2 (M2)}: Only the direct effect (uniform DIF) is estimated; the interaction is fixed to zero.
-#'   \item \strong{Model 3 (M3)}: Both direct and interaction effects are freely estimated (unrestricted model).
-#' }
-#' Then, likelihood ratio tests are performed:
-#' \itemize{
-#'   \item \strong{Global DIF}: M1 vs M3 (2 df)
-#'   \item \strong{Uniform DIF}: M1 vs M2 (1 df)
-#'   \item \strong{Non-uniform DIF}: M2 vs M3 (1 df)
-#' }
-#' Additionally, ΔR² is computed for uniform and non-uniform DIF:
-#' \itemize{
-#'   \item ΔR²\_uniforme = R²(M2) - R²(M1)   (variance explained by the direct effect)
-#'   \item ΔR²\_nouniforme = R²(M3) - R²(M2) (variance explained by the interaction)
-#' }
+#' @examples
+#' \dontrun{
+#' library(psych)
+#' data("bfi")
+#' data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
+#' data.bfi <- data.bfi[complete.cases(data.bfi), ]
+#' data.bfi$gender <- as.factor(data.bfi$gender)
 #'
-#' If \code{Oort.adj = TRUE}, an adjusted critical value is reported alongside the p-values,
-#' following the correction proposed by Oort (1992, 1998) to control Type I error inflation.
+#' res.lrt <- piMIMIClrt(data = data.bfi,
+#'                       items = c("N1","N2","N3","N4","N5"),
+#'                       cov = "gender",
+#'                       lvname = "Neuroticism",
+#'                       est = "MLM")
+#'
+#' res.lrt$LRT.Global
+#' res.lrt$DeltaR2.uDIF
+#' }
 #'
 #' @importFrom lavaan cfa lavTestLRT lavTestScore parameterEstimates inspect
 #' @importFrom scripty prods
@@ -74,7 +62,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     stop(paste("Error: The covariate", cov, "must be either a factor or numeric."))
   }
 
-  # ---- Prepare data with product indicators ----
+  # ---- Prepare data with product indicators (using scripty::prods) ----
   df_pi <- scripty::prods(df = data[, c(items, cov)],
                           covname = cov,
                           match.op = FALSE,
@@ -83,7 +71,8 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   cov_lat <- paste0(cov, "lat")
   int_fac <- paste0("LFacX", cov)
 
-  # ---- Base model syntax (without DIF effects) ----
+  # ---- Base model syntax (without DIF effects for a specific item) ----
+  # This is the same as in piMIMIC, but we'll add constraints per item.
   base_syntax <- paste0(
     lvname, " =~ ", paste(items, collapse = " + "), "\n",
     cov_lat, " =~ ", cov, "\n",
@@ -91,15 +80,36 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     paste(paste0(items, " ~~ ", items, ".", cov), collapse = "\n")
   )
 
-  # ---- Function to fit a model with constraints for a given item ----
+  # ---- Fit unrestricted model (M3) once ----
+  fit_m3_full <- tryCatch(
+    lavaan::cfa(base_syntax,
+                data = df_pi,
+                estimator = est,
+                meanstructure = TRUE),
+    error = function(e) NULL
+  )
+
+  if (is.null(fit_m3_full)) {
+    stop("Unrestricted model (M3) did not converge.")
+  }
+
+  # Extract R² from M3 (unrestricted) - ensure named vector
+  r2_m3 <- lavaan::inspect(fit_m3_full, "rsquare")
+  if (is.matrix(r2_m3)) {
+    r2_m3 <- as.vector(r2_m3)
+    names(r2_m3) <- items
+  }
+
+  # ---- Helper function to fit a model with constraints for a given item ----
   fit_item_model <- function(item, type = c("full", "direct", "none")) {
     type <- match.arg(type)
-
     mod_syntax <- base_syntax
 
     if (type == "none") {
+      # Fix both direct and interaction to 0
       constr <- paste0(item, " ~ 0*", cov_lat, " + 0*", int_fac)
     } else if (type == "direct") {
+      # Only interaction fixed to 0
       constr <- paste0(item, " ~ 0*", int_fac)
     } else {
       constr <- NULL
@@ -119,41 +129,20 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     return(fit)
   }
 
-  # ---- Fit unrestricted model (M3) once ----
-  fit_m3_full <- tryCatch(
-    lavaan::cfa(base_syntax,
-                data = df_pi,
-                estimator = est,
-                meanstructure = TRUE),
-    error = function(e) NULL
-  )
-
-  if (is.null(fit_m3_full)) {
-    stop("Unrestricted model (M3) did not converge.")
-  }
-
-  # Extract R² from M3 (unrestricted) - ensure it's a named vector
-  r2_m3 <- lavaan::inspect(fit_m3_full, "rsquare")
-  # If it's a matrix or data.frame, convert to vector
-  if (is.matrix(r2_m3) || is.data.frame(r2_m3)) {
-    r2_m3 <- as.vector(r2_m3)
-    names(r2_m3) <- items
-  }
-
   # ---- Initialize output containers ----
   n_items <- length(items)
 
-  # LRT tables (with correct column names)
+  # LRT tables
   lrt_global <- data.frame(Item = items, global.chi2 = NA_real_, df = 2L, p.value = NA_real_)
   lrt_uniforme <- data.frame(Item = items, uniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
   lrt_nouniforme <- data.frame(Item = items, nouniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
 
-  # Delta R² tables (single column)
+  # Delta R² tables (single column each)
   delta_r2_u <- data.frame(Item = items, delta_R2 = NA_real_)
   delta_r2_nu <- data.frame(Item = items, delta_R2 = NA_real_)
 
-  # ---- Determine if we can use LRT or need Score tests ----
-  # For non-ML estimators, lavTestLRT may not work; use lavTestScore instead
+  # ---- Determine test method based on estimator ----
+  # For non-ML, use Score tests (more robust)
   use_score <- !grepl("^ML$", est, ignore.case = TRUE)
 
   # ---- Loop over items ----
@@ -169,20 +158,20 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       next
     }
 
-    # Extract R² from M1 and M2 (ensure scalar)
-    r2_m1_val <- lavaan::inspect(fit_m1, "rsquare")
-    r2_m2_val <- lavaan::inspect(fit_m2, "rsquare")
+    # ---- Extract R² for this item ----
+    r2_m1_vec <- lavaan::inspect(fit_m1, "rsquare")
+    r2_m2_vec <- lavaan::inspect(fit_m2, "rsquare")
 
-    # Extract the value for the specific item
-    if (is.matrix(r2_m1_val) || is.data.frame(r2_m1_val)) {
-      r2_m1 <- r2_m1_val[item, item]  # Adjust if needed
+    # Ensure we have a scalar
+    if (is.matrix(r2_m1_vec)) {
+      r2_m1 <- r2_m1_vec[item, item]  # sometimes the matrix has row/col names
     } else {
-      r2_m1 <- r2_m1_val[item]
+      r2_m1 <- r2_m1_vec[item]
     }
-    if (is.matrix(r2_m2_val) || is.data.frame(r2_m2_val)) {
-      r2_m2 <- r2_m2_val[item, item]
+    if (is.matrix(r2_m2_vec)) {
+      r2_m2 <- r2_m2_vec[item, item]
     } else {
-      r2_m2 <- r2_m2_val[item]
+      r2_m2 <- r2_m2_vec[item]
     }
 
     # Compute ΔR²
@@ -191,8 +180,8 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
 
     # ---- Perform tests ----
     if (use_score) {
-      # Use Score tests (like piMIMICscore)
-      # Global test: add both parameters
+      # Use Score tests (similar to piMIMIC)
+      # Global: add both parameters to M1
       params_global <- c(paste0(item, "~", cov_lat), paste0(item, "~", int_fac))
       score_global <- tryCatch(
         lavaan::lavTestScore(fit_m1, add = params_global)$test,
@@ -204,7 +193,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         lrt_global[i, "p.value"] <- score_global[1, "p"]
       }
 
-      # Uniform test: add only direct effect (from M1)
+      # Uniform: add only direct effect to M1
       score_unif <- tryCatch(
         lavaan::lavTestScore(fit_m1, add = paste0(item, "~", cov_lat))$test,
         error = function(e) NULL
@@ -215,7 +204,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         lrt_uniforme[i, "p.value"] <- score_unif[1, "p"]
       }
 
-      # Non-uniform test: add interaction (from M2)
+      # Non-uniform: add interaction to M2
       score_nu <- tryCatch(
         lavaan::lavTestScore(fit_m2, add = paste0(item, "~", int_fac))$test,
         error = function(e) NULL
@@ -227,10 +216,10 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       }
 
     } else {
-      # Use LRT (only for ML estimator)
+      # Use LRT (only for ML estimator without correction, or with correction)
       # Global: M1 vs M3
       lrt_global_i <- tryCatch(
-        lavaan::lavTestLRT(fit_m1, fit_m3_full, method = "satorra.bentler.2001"),
+        lavaan::lavTestLRT(fit_m1, fit_m3_full, method = "default"),
         error = function(e) NULL
       )
       if (!is.null(lrt_global_i) && nrow(lrt_global_i) >= 2) {
@@ -241,7 +230,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
 
       # Uniform: M1 vs M2
       lrt_unif_i <- tryCatch(
-        lavaan::lavTestLRT(fit_m1, fit_m2, method = "satorra.bentler.2001"),
+        lavaan::lavTestLRT(fit_m1, fit_m2, method = "default"),
         error = function(e) NULL
       )
       if (!is.null(lrt_unif_i) && nrow(lrt_unif_i) >= 2) {
@@ -252,7 +241,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
 
       # Non-uniform: M2 vs M3
       lrt_nounif_i <- tryCatch(
-        lavaan::lavTestLRT(fit_m2, fit_m3_full, method = "satorra.bentler.2001"),
+        lavaan::lavTestLRT(fit_m2, fit_m3_full, method = "default"),
         error = function(e) NULL
       )
       if (!is.null(lrt_nounif_i) && nrow(lrt_nounif_i) >= 2) {

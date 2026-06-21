@@ -23,12 +23,12 @@ piMIMIClrt(
 
 \item{lvname}{Name for the latent variable in the model (default is `"LatFact"`).}
 
-\item{est}{Abbreviation of the estimator to use (see lavaan documentation). Default is `"MLM"`.}
+\item{est}{Abbreviation of the estimator to use. Must be a non-empty string (see lavaan documentation).}
 
-\item{Oort.adj}{Logical. If `TRUE`, applies Oort's critical value adjustment to the chi-square tests.
+\item{Oort.adj}{Logical. If `TRUE`, applies Oort's critical value adjustment to likelihood ratio (LR) tests.
 Default is `FALSE`.}
 
-\item{p.crit}{Numeric. Significance level used to compute the chi-square critical value.
+\item{p.crit}{Numeric. Significance level used to compute the chi-square critical value (e.g., 0.05, 0.01, 0.10).
 Only used if `Oort.adj = TRUE`. Default is `0.05`.}
 }
 \value{
@@ -45,29 +45,26 @@ A list with the following components:
 \description{
 Implements Differential Item Functioning (DIF) analysis using the Product of Indicators (PI)
 approach within a Multiple-Indicators Multiple-Causes (MIMIC) framework, based on likelihood
-ratio tests (LRT) comparing nested models. This function complements `piMIMICscore` (which
+ratio tests (LRT) comparing nested models. This function complements `piMIMIC` (which
 uses score tests) by providing LRT-based inference and additionally calculating effect sizes
 (ΔR²) for uniform and non-uniform DIF.
 }
-\details{
-The function fits three nested models for each item:
-\itemize{
-  \item \strong{Model 1 (M1)}: No effects (direct and interaction) are estimated for the studied item.
-  \item \strong{Model 2 (M2)}: Only the direct effect (uniform DIF) is estimated; the interaction is fixed to zero.
-  \item \strong{Model 3 (M3)}: Both direct and interaction effects are freely estimated (unrestricted model).
-}
-Then, likelihood ratio tests are performed:
-\itemize{
-  \item \strong{Global DIF}: M1 vs M3 (2 df)
-  \item \strong{Uniform DIF}: M1 vs M2 (1 df)
-  \item \strong{Non-uniform DIF}: M2 vs M3 (1 df)
-}
-Additionally, ΔR² is computed for uniform and non-uniform DIF:
-\itemize{
-  \item ΔR²\_uniforme = R²(M2) - R²(M1)   (variance explained by the direct effect)
-  \item ΔR²\_nouniforme = R²(M3) - R²(M2) (variance explained by the interaction)
+\examples{
+\dontrun{
+library(psych)
+data("bfi")
+data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
+data.bfi <- data.bfi[complete.cases(data.bfi), ]
+data.bfi$gender <- as.factor(data.bfi$gender)
+
+res.lrt <- piMIMIClrt(data = data.bfi,
+                      items = c("N1","N2","N3","N4","N5"),
+                      cov = "gender",
+                      lvname = "Neuroticism",
+                      est = "MLM")
+
+res.lrt$LRT.Global
+res.lrt$DeltaR2.uDIF
 }
 
-If \code{Oort.adj = TRUE}, an adjusted critical value is reported alongside the p-values,
-following the correction proposed by Oort (1992, 1998) to control Type I error inflation.
 }
