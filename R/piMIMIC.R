@@ -39,7 +39,7 @@
 #' (with covariate effect and interaction parameters freely estimated) and a restricted model
 #' (with these parameters fixed to zero), using the standard chi-square distribution.
 #'
-#' However, simulation studies (Oort, 1992, 1998; Kim, Yoon & Lee, 2011/2012) have shown that
+#' However, simulation studies (Oort, 1992, 1998; Kim, Yoon & Lee, 2011) have shown that
 #' the LR test under MIMIC may suffer from inflated Type I error rates. To address this, Oort proposed
 #' a correction of the chi-square critical value:
 #'
@@ -101,7 +101,7 @@
 #' @references
 #' Kim, E. S., Yoon, M., & Lee, T. (2011). Testing Measurement Invariance Using MIMIC:
 #' Likelihood Ratio Test With a Critical Value Adjustment. *Educational and Psychological Measurement, 72*(3), 469–492.
-#' https://doi.org/10.1177/0013164411427395 (Original work published 2012)
+#' https://doi.org/10.1177/0013164411427395
 #'
 #' Oort, F. J. (1992). Using restricted factor analysis to detect item bias. *Psychological Methods*, 37, 547–567.
 #'
