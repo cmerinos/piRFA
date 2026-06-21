@@ -2,48 +2,66 @@
 % Please edit documentation in R/piMIMIClrt.R
 \name{piMIMIClrt}
 \alias{piMIMIClrt}
-\title{PI-MIMIC with Effect Sizes (Delta R²) using Score Tests}
+\title{Function to Analyze DIF with PI-MIMIC using Likelihood Ratio Tests}
 \usage{
-piMIMIClrt(
-  data,
-  items,
-  cov,
-  lvname = "LatFact",
-  est = "MLM",
-  Oort.adj = FALSE,
-  p.crit = 0.05
-)
+piMIMIClrt(data, items, cov, lvname = "LatFact", est = "MLM")
 }
 \arguments{
-\item{data}{DataFrame containing items and the covariate.}
+\item{data}{Data frame containing items and the covariate.}
 
-\item{items}{Vector of item names within `data`.}
+\item{items}{Character vector of item names.}
 
-\item{cov}{Name of the covariate in `data` (can be categorical or numeric). If categorical, it must be a factor.}
+\item{cov}{Name of the covariate (must be numeric or factor; if factor, it
+will be converted to numeric).}
 
-\item{lvname}{Name for the latent variable in the model (default is `"LatFact"`).}
+\item{lvname}{Name for the latent variable (default "LatFact").}
 
-\item{est}{Abbreviation of the estimator to use. Must be a non-empty string (see lavaan documentation).}
-
-\item{Oort.adj}{Logical. If `TRUE`, applies Oort's critical value adjustment to likelihood ratio (LR) tests.
-Default is `FALSE`.}
-
-\item{p.crit}{Numeric. Significance level used to compute the chi-square critical value (e.g., 0.05, 0.01, 0.10).
-Only used if `Oort.adj = TRUE`. Default is `0.05`.}
+\item{est}{Estimator to use in lavaan (e.g., "MLM", "ML", "ULS"). Must be a
+non‑empty character string.}
 }
 \value{
-A list with:
-\itemize{
-  \item \code{DIF.Global} - data.frame: global.chi2, df, p.value (same as `piMIMIC`)
-  \item \code{DIF.Uniforme} - data.frame: item, uDIF.chi2, df, p.value
-  \item \code{DIF.NoUniforme} - data.frame: item, nuDIF.chi2, df, p.value
-  \item \code{DeltaR2.uDIF} - data.frame: item, delta_R2
-  \item \code{DeltaR2.nuDIF} - data.frame: item, delta_R2
-  \item \code{fit} - unrestricted model (M3) for further use
-}
+A list with the following components:
+\item{DIF.Global}{Data frame with global DIF test (2 df) for each item:
+  Item, Chi2, df, p.value.}
+\item{DIF.Uniforme}{Data frame with uniform DIF test (1 df) for each item.}
+\item{DIF.NoUniforme}{Data frame with non‑uniform DIF test (1 df).}
+\item{DeltaR2.uDIF}{Data frame with delta R² for uniform DIF (unrestricted R²
+  minus restricted R²).}
+\item{DeltaR2.nuDIF}{Data frame with delta R² for non‑uniform DIF.}
+\item{fit}{The unrestricted lavaan model object.}
 }
 \description{
-Implements DIF detection using the PI-MIMIC framework. It provides significance tests
-via Score tests (as in `piMIMIC`) and additionally calculates effect sizes (ΔR²)
-for uniform and non-uniform DIF by comparing nested models.
+This function implements Differential Item Functioning (DIF) analysis using
+the Product of Indicators (PI) approach within the MIMIC framework.
+Unlike the original piMIMIC, this version uses Likelihood Ratio Tests (LRT)
+between unrestricted and restricted models (fixing DIF parameters to zero)
+and reports the change in R² (delta R²) as an effect size measure.
+}
+\details{
+The function constructs a MIMIC model with latent interaction using the
+double‑mean‑centering product indicator method (scripty::prods).
+The unrestricted model includes direct effects of the covariate latent
+variable and the interaction latent variable on each item.
+For each item, three restricted models are fitted:
+1. Global: both direct effects fixed to 0 (2 df test).
+2. Uniform: only the covariate effect fixed to 0 (1 df).
+3. Non‑uniform: only the interaction effect fixed to 0 (1 df).
+LRT compares each restricted model against the unrestricted model.
+Additionally, the R² for each item is extracted from each model, and the
+difference (unrestricted - restricted) is reported as an effect size.
+}
+\examples{
+\dontrun{
+library(psych)
+data(bfi)
+data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
+data.bfi <- data.bfi[complete.cases(data.bfi), ]
+data.bfi$gender <- as.factor(data.bfi$gender)
+neuro.items <- c("N1","N2","N3","N4","N5")
+res <- piMIMIClrt(data = data.bfi, items = neuro.items,
+                   cov = "gender", lvname = "Neuroticism", est = "MLM")
+res$DIF.Global
+res$DeltaR2.uDIF
+}
+
 }

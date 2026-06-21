@@ -1,30 +1,63 @@
-#' @title PI-MIMIC with Effect Sizes (Delta R²) using Score Tests
+#' @title Function to Analyze DIF with PI-MIMIC using Likelihood Ratio Tests
 #'
 #' @description
-#' Implements DIF detection using the PI-MIMIC framework. It provides significance tests
-#' via Score tests (as in `piMIMIC`) and additionally calculates effect sizes (ΔR²)
-#' for uniform and non-uniform DIF by comparing nested models.
+#' This function implements Differential Item Functioning (DIF) analysis using
+#' the Product of Indicators (PI) approach within the MIMIC framework.
+#' Unlike the original piMIMIC, this version uses Likelihood Ratio Tests (LRT)
+#' between unrestricted and restricted models (fixing DIF parameters to zero)
+#' and reports the change in R² (delta R²) as an effect size measure.
 #'
-#' @inheritParams piMIMIC
+#' @param data Data frame containing items and the covariate.
+#' @param items Character vector of item names.
+#' @param cov Name of the covariate (must be numeric or factor; if factor, it
+#'   will be converted to numeric).
+#' @param lvname Name for the latent variable (default "LatFact").
+#' @param est Estimator to use in lavaan (e.g., "MLM", "ML", "ULS"). Must be a
+#'   non‑empty character string.
 #'
-#' @return
-#' A list with:
-#' \itemize{
-#'   \item \code{DIF.Global} - data.frame: global.chi2, df, p.value (same as `piMIMIC`)
-#'   \item \code{DIF.Uniforme} - data.frame: item, uDIF.chi2, df, p.value
-#'   \item \code{DIF.NoUniforme} - data.frame: item, nuDIF.chi2, df, p.value
-#'   \item \code{DeltaR2.uDIF} - data.frame: item, delta_R2
-#'   \item \code{DeltaR2.nuDIF} - data.frame: item, delta_R2
-#'   \item \code{fit} - unrestricted model (M3) for further use
+#' @return A list with the following components:
+#' \item{DIF.Global}{Data frame with global DIF test (2 df) for each item:
+#'   Item, Chi2, df, p.value.}
+#' \item{DIF.Uniforme}{Data frame with uniform DIF test (1 df) for each item.}
+#' \item{DIF.NoUniforme}{Data frame with non‑uniform DIF test (1 df).}
+#' \item{DeltaR2.uDIF}{Data frame with delta R² for uniform DIF (unrestricted R²
+#'   minus restricted R²).}
+#' \item{DeltaR2.nuDIF}{Data frame with delta R² for non‑uniform DIF.}
+#' \item{fit}{The unrestricted lavaan model object.}
+#'
+#' @details
+#' The function constructs a MIMIC model with latent interaction using the
+#' double‑mean‑centering product indicator method (scripty::prods).
+#' The unrestricted model includes direct effects of the covariate latent
+#' variable and the interaction latent variable on each item.
+#' For each item, three restricted models are fitted:
+#' 1. Global: both direct effects fixed to 0 (2 df test).
+#' 2. Uniform: only the covariate effect fixed to 0 (1 df).
+#' 3. Non‑uniform: only the interaction effect fixed to 0 (1 df).
+#' LRT compares each restricted model against the unrestricted model.
+#' Additionally, the R² for each item is extracted from each model, and the
+#' difference (unrestricted - restricted) is reported as an effect size.
+#'
+#' @examples
+#' \dontrun{
+#' library(psych)
+#' data(bfi)
+#' data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
+#' data.bfi <- data.bfi[complete.cases(data.bfi), ]
+#' data.bfi$gender <- as.factor(data.bfi$gender)
+#' neuro.items <- c("N1","N2","N3","N4","N5")
+#' res <- piMIMIClrt(data = data.bfi, items = neuro.items,
+#'                    cov = "gender", lvname = "Neuroticism", est = "MLM")
+#' res$DIF.Global
+#' res$DeltaR2.uDIF
 #' }
 #'
-#' @importFrom lavaan cfa lavTestScore parameterEstimates inspect
-#' @importFrom scripty prods mimicparam
+#' @importFrom lavaan cfa lavTestLRT lavInspect
+#' @importFrom scripty prods
 #' @export
-piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
-                       est = "MLM", Oort.adj = FALSE, p.crit = 0.05) {
+piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
 
-  # ---- Basic checks ----
+  # ---- Argument checks ----
   if (!is.character(est) || nchar(est) == 0) {
     stop("Error: Estimator must be a non-empty string (see lavaan documentation).")
   }
@@ -35,208 +68,127 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     stop("Error: The latent variable name ('lvname') must be a non-empty string.")
   }
 
-  # Convert factor covariate to numeric if needed
+  # Convert factor covariate to numeric
   if (is.factor(data[[cov]])) {
     data[[cov]] <- as.numeric(data[[cov]])
   } else if (!is.numeric(data[[cov]])) {
     stop(paste("Error: The covariate", cov, "must be either a factor or numeric."))
   }
 
-  # ---- Prepare data with product indicators ----
+  # ---- Prepare product indicators (double mean centering) ----
   df_pi <- scripty::prods(df = data[, c(items, cov)],
                           covname = cov,
                           match.op = FALSE,
                           doubleMC.op = TRUE)
 
-  cov_lat <- paste0(cov, "lat")
-  int_fac <- paste0("LFacX", cov)
+  # Names of product indicators (assumed to be "item.cov")
+  prod_names <- paste0(items, ".", cov)
+  cov_lat <- paste0(cov, "lat")          # latent covariate factor name
+  int_name <- paste0("LFacX", cov)       # latent interaction factor name
 
-  # ---- Base model syntax (without DIF effects for a specific item) ----
+  # ---- Build unrestricted model syntax ----
+  # Base part: latent factors, residual covariances, and fix residual variance of cov indicator
   base_syntax <- paste0(
     lvname, " =~ ", paste(items, collapse = " + "), "\n",
     cov_lat, " =~ ", cov, "\n",
-    int_fac, " =~ ", paste0(items, ".", cov, collapse = " + "), "\n",
-    paste(paste0(items, " ~~ ", items, ".", cov), collapse = "\n")
+    int_name, " =~ ", paste(prod_names, collapse = " + "), "\n",
+    paste(paste0(items, " ~~ ", prod_names), collapse = "\n"), "\n",
+    paste0(cov, " ~~ 0*", cov)   # fix residual variance of covariate indicator
   )
 
-  # ---- Fit unrestricted model (M3) ----
-  fit_m3_full <- tryCatch(
-    lavaan::cfa(base_syntax,
-                data = df_pi,
-                estimator = est,
-                meanstructure = TRUE),
-    error = function(e) NULL
-  )
-
-  if (is.null(fit_m3_full)) {
-    stop("Unrestricted model (M3) did not converge.")
+  # Regressions of each item on cov_lat and int_name (direct DIF effects)
+  reg_lines <- character()
+  for (it in items) {
+    reg_lines <- c(reg_lines,
+                   paste0(it, " ~ ", cov_lat),          # uniform DIF
+                   paste0(it, " ~ ", int_name))        # non-uniform DIF
   }
+  unrestricted_syntax <- paste0(base_syntax, "\n", paste(reg_lines, collapse = "\n"))
 
-  # ---- Extract R² from M3 ----
-  r2_m3 <- lavaan::inspect(fit_m3_full, "rsquare")
-  if (is.matrix(r2_m3)) {
-    r2_m3 <- as.vector(r2_m3)
-    names(r2_m3) <- items
-  }
+  # ---- Fit unrestricted model ----
+  fit_un <- lavaan::cfa(unrestricted_syntax,
+                        data = df_pi,
+                        estimator = est,
+                        meanstructure = TRUE)
 
-  # ---- Helper function to fit a model with constraints for a given item ----
-  fit_item_model <- function(item, type = c("direct", "none")) {
-    type <- match.arg(type)
-    mod_syntax <- base_syntax
+  # R² for all items in unrestricted model
+  r2_un <- lavaan::lavInspect(fit_un, "rsquare")[items]
 
-    if (type == "none") {
-      constr <- paste0(item, " ~ 0*", cov_lat, " + 0*", int_fac)
-    } else { # "direct"
-      constr <- paste0(item, " ~ 0*", int_fac)
-    }
+  # ---- Initialize output data frames ----
+  n_items <- length(items)
+  out_global <- data.frame(Item = items, Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_,
+                           stringsAsFactors = FALSE)
+  out_uniform <- data.frame(Item = items, Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_,
+                            stringsAsFactors = FALSE)
+  out_nouniform <- data.frame(Item = items, Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_,
+                              stringsAsFactors = FALSE)
+  out_delta_u <- data.frame(Item = items, delta.R2 = NA_real_, stringsAsFactors = FALSE)
+  out_delta_nu <- data.frame(Item = items, delta.R2 = NA_real_, stringsAsFactors = FALSE)
 
-    mod_syntax <- paste(mod_syntax, constr, sep = "\n")
-
-    fit <- tryCatch(
-      lavaan::cfa(mod_syntax,
-                  data = df_pi,
-                  estimator = est,
-                  meanstructure = TRUE),
-      error = function(e) NULL
-    )
-    return(fit)
-  }
-
-  # ---- Use piMIMIC logic for significance tests (Score tests from unrestricted model) ----
-  # Get parameters to release (using scripty::mimicparam)
-  mimic_param <- scripty::mimicparam(fit_m3_full)
-
-  # Global test (both effects for each item)
-  any.out <- do.call(rbind, lapply(mimic_param, function(x) {
-    test <- tryCatch(lavaan::lavTestScore(fit_m3_full, add = x)$test,
-                     error = function(e) NULL)
-    if (!is.null(test) && nrow(test) > 0) {
-      test[1, c("X2", "df", "p")]
-    } else {
-      data.frame(X2 = NA_real_, df = NA_integer_, p = NA_real_)
-    }
-  }))
-
-  # Univariate tests (each parameter separately)
-  sep.out <- tryCatch(
-    lavaan::lavTestScore(fit_m3_full, add = as.character(mimic_param)),
-    error = function(e) NULL
-  )
-
-  # Build DIF tables (same as piMIMIC)
-  if (!is.null(sep.out) && !is.null(sep.out$uni)) {
-    oddnum <- seq(1, length(sep.out$uni$lhs), 2)
-    evennum <- seq(2, length(sep.out$uni$lhs), 2)
-
-    df_dif_uniforme <- data.frame(
-      Item = sep.out$uni$lhs[oddnum],
-      uDIF.Chi2 = round(sep.out$uni$X2[oddnum], 2),
-      df = sep.out$uni$df[oddnum],
-      p.value = round(sep.out$uni$p.value[oddnum], 3)
-    )
-
-    df_dif_nouniforme <- data.frame(
-      Item = sep.out$uni$lhs[evennum],
-      nuDIF.Chi2 = round(sep.out$uni$X2[evennum], 2),
-      df = sep.out$uni$df[evennum],
-      p.value = round(sep.out$uni$p.value[evennum], 3)
-    )
-  } else {
-    # Fallback if sep.out fails
-    df_dif_uniforme <- data.frame(Item = items, uDIF.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
-    df_dif_nouniforme <- data.frame(Item = items, nuDIF.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
-  }
-
-  # Global DIF table
-  df_dif_global <- data.frame(
-    DIF.Global.Chi2 = round(any.out$X2, 2),
-    df = any.out$df,
-    p.value = round(any.out$p, 3)
-  )
-
-  # ---- Calculate Delta R² by fitting restricted models ----
-  delta_r2_u <- data.frame(Item = items, delta_R2 = NA_real_)
-  delta_r2_nu <- data.frame(Item = items, delta_R2 = NA_real_)
-
+  # For each item, fit restricted models and perform LRT
   for (i in seq_along(items)) {
-    item <- items[i]
+    it <- items[i]
+    # positions of the two regression lines for this item in reg_lines
+    pos_uniform <- 2 * (i - 1) + 1
+    pos_nouniform <- 2 * (i - 1) + 2
 
-    # Fit M1 (no effects) and M2 (only direct)
-    fit_m1 <- fit_item_model(item, type = "none")
-    fit_m2 <- fit_item_model(item, type = "direct")
+    # ---- 1. Global restriction (remove both lines) ----
+    kept_global <- reg_lines[-c(pos_uniform, pos_nouniform)]
+    syntax_global <- paste0(base_syntax, "\n", paste(kept_global, collapse = "\n"))
+    fit_global <- lavaan::cfa(syntax_global,
+                              data = df_pi,
+                              estimator = est,
+                              meanstructure = TRUE)
+    # LRT global (2 df)
+    lrt_global <- lavaan::lavTestLRT(fit_global, fit_un, method = "default")
+    # Extract difference test statistics (second row)
+    out_global$Chi2[i] <- lrt_global[2, "Chisq diff"]
+    out_global$df[i]   <- lrt_global[2, "Df diff"]
+    out_global$p.value[i] <- lrt_global[2, "Pr(>Chisq)"]
 
-    if (!is.null(fit_m1) && !is.null(fit_m2)) {
-      # Extract R² for this item
-      r2_m1_vec <- lavaan::inspect(fit_m1, "rsquare")
-      r2_m2_vec <- lavaan::inspect(fit_m2, "rsquare")
+    # R² for this item in global restricted model
+    r2_global_it <- lavaan::lavInspect(fit_global, "rsquare")[it]
+    # delta R² for global? We don't need to report it separately; but we compute
+    # for uniform and non-uniform below.
 
-      # Ensure scalar
-      if (is.matrix(r2_m1_vec)) {
-        r2_m1 <- r2_m1_vec[item, item]
-      } else {
-        r2_m1 <- r2_m1_vec[item]
-      }
-      if (is.matrix(r2_m2_vec)) {
-        r2_m2 <- r2_m2_vec[item, item]
-      } else {
-        r2_m2 <- r2_m2_vec[item]
-      }
+    # ---- 2. Uniform restriction (remove cov_lat line only) ----
+    kept_uniform <- reg_lines[-pos_uniform]
+    syntax_uniform <- paste0(base_syntax, "\n", paste(kept_uniform, collapse = "\n"))
+    fit_uniform <- lavaan::cfa(syntax_uniform,
+                               data = df_pi,
+                               estimator = est,
+                               meanstructure = TRUE)
+    lrt_uniform <- lavaan::lavTestLRT(fit_uniform, fit_un, method = "default")
+    out_uniform$Chi2[i] <- lrt_uniform[2, "Chisq diff"]
+    out_uniform$df[i]   <- lrt_uniform[2, "Df diff"]
+    out_uniform$p.value[i] <- lrt_uniform[2, "Pr(>Chisq)"]
 
-      # Compute ΔR²
-      delta_r2_u[i, "delta_R2"] <- as.numeric(r2_m2 - r2_m1)
-      delta_r2_nu[i, "delta_R2"] <- as.numeric(r2_m3[item] - r2_m2)
-    } else {
-      warning(paste("Restricted models for item", item, "did not converge. Delta R² set to NA."))
-    }
+    r2_uniform_it <- lavaan::lavInspect(fit_uniform, "rsquare")[it]
+    out_delta_u$delta.R2[i] <- r2_un[it] - r2_uniform_it
+
+    # ---- 3. Non-uniform restriction (remove int_name line only) ----
+    kept_nouniform <- reg_lines[-pos_nouniform]
+    syntax_nouniform <- paste0(base_syntax, "\n", paste(kept_nouniform, collapse = "\n"))
+    fit_nouniform <- lavaan::cfa(syntax_nouniform,
+                                 data = df_pi,
+                                 estimator = est,
+                                 meanstructure = TRUE)
+    lrt_nouniform <- lavaan::lavTestLRT(fit_nouniform, fit_un, method = "default")
+    out_nouniform$Chi2[i] <- lrt_nouniform[2, "Chisq diff"]
+    out_nouniform$df[i]   <- lrt_nouniform[2, "Df diff"]
+    out_nouniform$p.value[i] <- lrt_nouniform[2, "Pr(>Chisq)"]
+
+    r2_nouniform_it <- lavaan::lavInspect(fit_nouniform, "rsquare")[it]
+    out_delta_nu$delta.R2[i] <- r2_un[it] - r2_nouniform_it
   }
 
-  # ---- Apply Oort adjustment if requested ----
-  if (Oort.adj) {
-    baseline <- fit_m3_full@test$standard
-    chi0 <- as.numeric(baseline[["stat"]])
-    df0 <- as.numeric(baseline[["df"]])
-
-    add_oort <- function(df_table, df_col = "df") {
-      if (is.null(df_table) || nrow(df_table) == 0) return(df_table)
-      df_vals <- df_table[[df_col]]
-      K <- qchisq(1 - p.crit, df_vals)
-      crit.Oort <- (chi0 / (K + df0 - 1)) * K
-      df_table$crit.Oort <- round(crit.Oort, 3)
-      df_table
-    }
-
-    df_dif_global <- add_oort(df_dif_global, "df")
-    df_dif_uniforme <- add_oort(df_dif_uniforme, "df")
-    df_dif_nouniforme <- add_oort(df_dif_nouniforme, "df")
-  }
-
-  # ---- Prepare output ----
-  out <- list(
-    DIF.Global = df_dif_global,
-    DIF.Uniforme = df_dif_uniforme,
-    DIF.NoUniforme = df_dif_nouniforme,
-    DeltaR2.uDIF = delta_r2_u,
-    DeltaR2.nuDIF = delta_r2_nu,
-    fit = fit_m3_full
+  # ---- Return results ----
+  list(
+    DIF.Global = out_global,
+    DIF.Uniforme = out_uniform,
+    DIF.NoUniforme = out_nouniform,
+    DeltaR2.uDIF = out_delta_u,
+    DeltaR2.nuDIF = out_delta_nu,
+    fit = fit_un
   )
-
-  class(out) <- "piMIMIClrt"
-  return(out)
-}
-
-#' @export
-print.piMIMIClrt <- function(x, ...) {
-  cat("PI-MIMIC LRT Results (Score tests + Delta R²)\n")
-  cat("=============================================\n\n")
-  cat("Global DIF (both effects):\n")
-  print(x$DIF.Global)
-  cat("\nUniform DIF (direct effect):\n")
-  print(x$DIF.Uniforme)
-  cat("\nNon-uniform DIF (interaction):\n")
-  print(x$DIF.NoUniforme)
-  cat("\nDelta R² for Uniform DIF:\n")
-  print(x$DeltaR2.uDIF)
-  cat("\nDelta R² for Non-uniform DIF:\n")
-  print(x$DeltaR2.nuDIF)
-  invisible(x)
 }
