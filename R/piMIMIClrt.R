@@ -128,7 +128,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   n_items <- length(items)
 
   # Tables for Score tests (same structure as piMIMIC)
-  # We'll build them incrementally
   lrt_global <- data.frame(DIF.Global.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
   df_dif_uniforme <- data.frame(Item = items, uDIF.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
   df_dif_nouniforme <- data.frame(Item = items, nuDIF.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
@@ -170,7 +169,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     delta_r2_u[i, "delta_R2"] <- as.numeric(r2_m2 - r2_m1)
     delta_r2_nu[i, "delta_R2"] <- as.numeric(r2_m3[item] - r2_m2)
 
-    # ---- Score tests (same logic as piMIMIC) ----
+    # ---- Score tests ----
     # Global: add both parameters to M1
     params_global <- c(paste0(item, "~", cov_lat), paste0(item, "~", int_fac))
     score_global <- tryCatch(
@@ -178,9 +177,19 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       error = function(e) NULL
     )
     if (!is.null(score_global) && nrow(score_global) > 0) {
-      lrt_global[i, "DIF.Global.Chi2"] <- round(score_global[1, "X2"], 2)
-      lrt_global[i, "df"] <- score_global[1, "df"]
-      lrt_global[i, "p.value"] <- round(score_global[1, "p"], 3)
+      # Extract safely, handling column names
+      chi2_col <- if ("X2" %in% names(score_global)) "X2" else stop("No X2 column")
+      p_col <- if ("p.value" %in% names(score_global)) "p.value" else if ("p" %in% names(score_global)) "p" else NULL
+
+      if (!is.null(p_col)) {
+        chi2_val <- as.numeric(score_global[1, chi2_col])
+        df_val <- as.integer(score_global[1, "df"])
+        p_val <- as.numeric(score_global[1, p_col])
+
+        lrt_global[i, "DIF.Global.Chi2"] <- round(chi2_val, 2)
+        lrt_global[i, "df"] <- df_val
+        lrt_global[i, "p.value"] <- round(p_val, 3)
+      }
     }
 
     # Uniform: add only direct effect to M1
@@ -189,9 +198,18 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       error = function(e) NULL
     )
     if (!is.null(score_unif) && nrow(score_unif) > 0) {
-      df_dif_uniforme[i, "uDIF.Chi2"] <- round(score_unif[1, "X2"], 2)
-      df_dif_uniforme[i, "df"] <- score_unif[1, "df"]
-      df_dif_uniforme[i, "p.value"] <- round(score_unif[1, "p"], 3)
+      chi2_col <- if ("X2" %in% names(score_unif)) "X2" else stop("No X2 column")
+      p_col <- if ("p.value" %in% names(score_unif)) "p.value" else if ("p" %in% names(score_unif)) "p" else NULL
+
+      if (!is.null(p_col)) {
+        chi2_val <- as.numeric(score_unif[1, chi2_col])
+        df_val <- as.integer(score_unif[1, "df"])
+        p_val <- as.numeric(score_unif[1, p_col])
+
+        df_dif_uniforme[i, "uDIF.Chi2"] <- round(chi2_val, 2)
+        df_dif_uniforme[i, "df"] <- df_val
+        df_dif_uniforme[i, "p.value"] <- round(p_val, 3)
+      }
     }
 
     # Non-uniform: add interaction to M2
@@ -200,9 +218,18 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       error = function(e) NULL
     )
     if (!is.null(score_nu) && nrow(score_nu) > 0) {
-      df_dif_nouniforme[i, "nuDIF.Chi2"] <- round(score_nu[1, "X2"], 2)
-      df_dif_nouniforme[i, "df"] <- score_nu[1, "df"]
-      df_dif_nouniforme[i, "p.value"] <- round(score_nu[1, "p"], 3)
+      chi2_col <- if ("X2" %in% names(score_nu)) "X2" else stop("No X2 column")
+      p_col <- if ("p.value" %in% names(score_nu)) "p.value" else if ("p" %in% names(score_nu)) "p" else NULL
+
+      if (!is.null(p_col)) {
+        chi2_val <- as.numeric(score_nu[1, chi2_col])
+        df_val <- as.integer(score_nu[1, "df"])
+        p_val <- as.numeric(score_nu[1, p_col])
+
+        df_dif_nouniforme[i, "nuDIF.Chi2"] <- round(chi2_val, 2)
+        df_dif_nouniforme[i, "df"] <- df_val
+        df_dif_nouniforme[i, "p.value"] <- round(p_val, 3)
+      }
     }
   }
 
@@ -238,21 +265,4 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
 
   class(out) <- "piMIMIClrt"
   return(out)
-}
-
-#' @export
-print.piMIMIClrt <- function(x, ...) {
-  cat("PI-MIMIC LRT Results (Score tests with effect sizes)\n")
-  cat("===================================================\n\n")
-  cat("Global DIF (both effects):\n")
-  print(x$DIF.Global)
-  cat("\nUniform DIF (direct effect):\n")
-  print(x$DIF.Uniforme)
-  cat("\nNon-uniform DIF (interaction):\n")
-  print(x$DIF.NoUniforme)
-  cat("\nDelta R² for Uniform DIF:\n")
-  print(x$DeltaR2.uDIF)
-  cat("\nDelta R² for Non-uniform DIF:\n")
-  print(x$DeltaR2.nuDIF)
-  invisible(x)
 }
