@@ -72,7 +72,6 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   int_fac <- paste0("LFacX", cov)
 
   # ---- Base model syntax (without DIF effects for a specific item) ----
-  # This is the same as in piMIMIC, but we'll add constraints per item.
   base_syntax <- paste0(
     lvname, " =~ ", paste(items, collapse = " + "), "\n",
     cov_lat, " =~ ", cov, "\n",
@@ -164,7 +163,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
 
     # Ensure we have a scalar
     if (is.matrix(r2_m1_vec)) {
-      r2_m1 <- r2_m1_vec[item, item]  # sometimes the matrix has row/col names
+      r2_m1 <- r2_m1_vec[item, item]
     } else {
       r2_m1 <- r2_m1_vec[item]
     }
@@ -174,9 +173,9 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       r2_m2 <- r2_m2_vec[item]
     }
 
-    # Compute ΔR²
-    delta_r2_u[i, "delta_R2"] <- r2_m2 - r2_m1
-    delta_r2_nu[i, "delta_R2"] <- r2_m3[item] - r2_m2
+    # Compute ΔR² (ensure numeric)
+    delta_r2_u[i, "delta_R2"] <- as.numeric(r2_m2 - r2_m1)
+    delta_r2_nu[i, "delta_R2"] <- as.numeric(r2_m3[item] - r2_m2)
 
     # ---- Perform tests ----
     if (use_score) {
@@ -188,9 +187,14 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         error = function(e) NULL
       )
       if (!is.null(score_global) && nrow(score_global) > 0) {
-        lrt_global[i, "global.chi2"] <- score_global[1, "X2"]
-        lrt_global[i, "df"] <- score_global[1, "df"]
-        lrt_global[i, "p.value"] <- score_global[1, "p"]
+        # Safely extract values
+        chi2_val <- if (!is.null(score_global[1, "X2"])) score_global[1, "X2"] else NA_real_
+        df_val   <- if (!is.null(score_global[1, "df"])) score_global[1, "df"] else NA_integer_
+        p_val    <- if (!is.null(score_global[1, "p"])) score_global[1, "p"] else NA_real_
+
+        lrt_global[i, "global.chi2"] <- chi2_val
+        lrt_global[i, "df"] <- df_val
+        lrt_global[i, "p.value"] <- p_val
       }
 
       # Uniform: add only direct effect to M1
@@ -199,9 +203,13 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         error = function(e) NULL
       )
       if (!is.null(score_unif) && nrow(score_unif) > 0) {
-        lrt_uniforme[i, "uniforme.chi2"] <- score_unif[1, "X2"]
-        lrt_uniforme[i, "df"] <- score_unif[1, "df"]
-        lrt_uniforme[i, "p.value"] <- score_unif[1, "p"]
+        chi2_val <- if (!is.null(score_unif[1, "X2"])) score_unif[1, "X2"] else NA_real_
+        df_val   <- if (!is.null(score_unif[1, "df"])) score_unif[1, "df"] else NA_integer_
+        p_val    <- if (!is.null(score_unif[1, "p"])) score_unif[1, "p"] else NA_real_
+
+        lrt_uniforme[i, "uniforme.chi2"] <- chi2_val
+        lrt_uniforme[i, "df"] <- df_val
+        lrt_uniforme[i, "p.value"] <- p_val
       }
 
       # Non-uniform: add interaction to M2
@@ -210,22 +218,30 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         error = function(e) NULL
       )
       if (!is.null(score_nu) && nrow(score_nu) > 0) {
-        lrt_nouniforme[i, "nouniforme.chi2"] <- score_nu[1, "X2"]
-        lrt_nouniforme[i, "df"] <- score_nu[1, "df"]
-        lrt_nouniforme[i, "p.value"] <- score_nu[1, "p"]
+        chi2_val <- if (!is.null(score_nu[1, "X2"])) score_nu[1, "X2"] else NA_real_
+        df_val   <- if (!is.null(score_nu[1, "df"])) score_nu[1, "df"] else NA_integer_
+        p_val    <- if (!is.null(score_nu[1, "p"])) score_nu[1, "p"] else NA_real_
+
+        lrt_nouniforme[i, "nouniforme.chi2"] <- chi2_val
+        lrt_nouniforme[i, "df"] <- df_val
+        lrt_nouniforme[i, "p.value"] <- p_val
       }
 
     } else {
-      # Use LRT (only for ML estimator without correction, or with correction)
+      # Use LRT (only for ML estimator)
       # Global: M1 vs M3
       lrt_global_i <- tryCatch(
         lavaan::lavTestLRT(fit_m1, fit_m3_full, method = "default"),
         error = function(e) NULL
       )
       if (!is.null(lrt_global_i) && nrow(lrt_global_i) >= 2) {
-        lrt_global[i, "global.chi2"] <- lrt_global_i[2, "Chisq diff"]
-        lrt_global[i, "df"] <- lrt_global_i[2, "Df diff"]
-        lrt_global[i, "p.value"] <- lrt_global_i[2, "Pr(>Chisq)"]
+        chi2_val <- if (!is.null(lrt_global_i[2, "Chisq diff"])) lrt_global_i[2, "Chisq diff"] else NA_real_
+        df_val   <- if (!is.null(lrt_global_i[2, "Df diff"])) lrt_global_i[2, "Df diff"] else NA_integer_
+        p_val    <- if (!is.null(lrt_global_i[2, "Pr(>Chisq)"])) lrt_global_i[2, "Pr(>Chisq)"] else NA_real_
+
+        lrt_global[i, "global.chi2"] <- chi2_val
+        lrt_global[i, "df"] <- df_val
+        lrt_global[i, "p.value"] <- p_val
       }
 
       # Uniform: M1 vs M2
@@ -234,9 +250,13 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         error = function(e) NULL
       )
       if (!is.null(lrt_unif_i) && nrow(lrt_unif_i) >= 2) {
-        lrt_uniforme[i, "uniforme.chi2"] <- lrt_unif_i[2, "Chisq diff"]
-        lrt_uniforme[i, "df"] <- lrt_unif_i[2, "Df diff"]
-        lrt_uniforme[i, "p.value"] <- lrt_unif_i[2, "Pr(>Chisq)"]
+        chi2_val <- if (!is.null(lrt_unif_i[2, "Chisq diff"])) lrt_unif_i[2, "Chisq diff"] else NA_real_
+        df_val   <- if (!is.null(lrt_unif_i[2, "Df diff"])) lrt_unif_i[2, "Df diff"] else NA_integer_
+        p_val    <- if (!is.null(lrt_unif_i[2, "Pr(>Chisq)"])) lrt_unif_i[2, "Pr(>Chisq)"] else NA_real_
+
+        lrt_uniforme[i, "uniforme.chi2"] <- chi2_val
+        lrt_uniforme[i, "df"] <- df_val
+        lrt_uniforme[i, "p.value"] <- p_val
       }
 
       # Non-uniform: M2 vs M3
@@ -245,9 +265,13 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
         error = function(e) NULL
       )
       if (!is.null(lrt_nounif_i) && nrow(lrt_nounif_i) >= 2) {
-        lrt_nouniforme[i, "nouniforme.chi2"] <- lrt_nounif_i[2, "Chisq diff"]
-        lrt_nouniforme[i, "df"] <- lrt_nounif_i[2, "Df diff"]
-        lrt_nouniforme[i, "p.value"] <- lrt_nounif_i[2, "Pr(>Chisq)"]
+        chi2_val <- if (!is.null(lrt_nounif_i[2, "Chisq diff"])) lrt_nounif_i[2, "Chisq diff"] else NA_real_
+        df_val   <- if (!is.null(lrt_nounif_i[2, "Df diff"])) lrt_nounif_i[2, "Df diff"] else NA_integer_
+        p_val    <- if (!is.null(lrt_nounif_i[2, "Pr(>Chisq)"])) lrt_nounif_i[2, "Pr(>Chisq)"] else NA_real_
+
+        lrt_nouniforme[i, "nouniforme.chi2"] <- chi2_val
+        lrt_nouniforme[i, "df"] <- df_val
+        lrt_nouniforme[i, "p.value"] <- p_val
       }
     }
   }
