@@ -2,7 +2,7 @@
 % Please edit documentation in R/piMIMIC.R
 \name{piMIMIC}
 \alias{piMIMIC}
-\title{Function to Analyze DIF with PI-RFA/MIMIC (Product of Indicators)}
+\title{DIF analysis using PI-MIMIC with Score Test (Oort adjustment optional)}
 \usage{
 piMIMIC(
   data,
@@ -15,80 +15,36 @@ piMIMIC(
 )
 }
 \arguments{
-\item{data}{DataFrame containing items and the covariate.}
+\item{data}{Data frame containing items and the covariate.}
 
-\item{items}{Vector of item names within `data`.}
+\item{items}{Character vector of item names.}
 
-\item{cov}{Name of the covariate in `data` (can be categorical or numeric). If categorical, it must be a factor.}
+\item{cov}{Name of the covariate (numeric or factor).}
 
-\item{lvname}{Name for the latent variable in the model (default is `"LatFact"`).}
+\item{lvname}{Name of the latent variable (default "LatFact").}
 
-\item{est}{Abbreviation of the estimator to use. Must be a non-empty string (see lavaan documentation).}
+\item{est}{Estimator for lavaan (default "MLM").}
 
-\item{Oort.adj}{Logical. If `TRUE`, applies Oort's critical value adjustment to likelihood ratio (LR) tests.
-Default is `FALSE`.}
+\item{Oort.adj}{Logical; if `TRUE`, applies Oort's adjustment to the critical value.}
 
-\item{p.crit}{Numeric. Significance level used to compute the chi-square critical value (e.g., 0.05, 0.01, 0.10).
-Only used if `Oort.adj = TRUE`. Default is `0.05`.}
+\item{p.crit}{Numeric; significance level for the Oort adjustment.}
 }
 \value{
-The function returns a list with the following DataFrames:
- \itemize{
-   \item \code{DIF.Global} - Global DIF results (includes Oort-adjusted critical value if requested).
-   \item \code{DIF.Uniforme} - Uniform DIF results.
-   \item \code{DIF.NoUniforme} - Non-uniform DIF results.
-   \item \code{SEPC.uDIF} - SEPC coefficients for uniform DIF.
-   \item \code{SEPC.nuDIF} - SEPC coefficients for non-uniform DIF.
- }
+A list with:
+\item{DIF.Global}{Data frame with global DIF test (2 df): Chi², df, p-value, and Oort critical value if requested.}
+\item{DIF.Uniforme}{Data frame with uniform DIF test (1 df).}
+\item{DIF.NoUniforme}{Data frame with non‑uniform DIF test (1 df).}
+\item{SEPC.uDIF}{Standardized expected parameter change for uniform DIF.}
+\item{SEPC.nuDIF}{Standardized expected parameter change for non‑uniform DIF.}
+\item{fit}{The fitted lavaan object.}
 }
 \description{
-The `piMIMIC` function analyzes Differential Item Functioning (DIF)
-using the multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI).
-It relies on `lavaan` and `scripty`. Uniform and non-uniform DIF can be evaluated in a measurement scale,
-through statistical tests and an effect size approximation with SPEC of releases parameter.
+Implements the product indicator (PI) approach for MIMIC models to detect
+uniform and non‑uniform DIF using the score test (modification indices).
+Optionally applies Oort's critical value adjustment to control Type I error.
 }
 \details{
-This function implements Differential Item Functioning (DIF) analysis using
-the Product of Indicators approach (PI; Kolbe & Jorgensen, 2018) within the
-Restricted Factor Analysis (RFA; Oort, 1998) framework. This method operates under a
-MIMIC scheme (Finch, 2005), incorporating latent variable interactions using PI (Kolbe et al., 2018, 2019;
-Kolbe, Jorgensen, & Molenaar, 2020). It allows for the evaluation of uniform (uDIF) and non-uniform DIF (nuDIF)
-with covariates that can be categorical (e.g., sex) or continuous (e.g., self-esteem, conscientiousness).
 
-Estimation is performed via `lavaan::cfa`, and DIF statistical tests are based
-on the likelihood ratio test (LRT). By default, chi-square tests compare an unrestricted model
-(with covariate effect and interaction parameters freely estimated) and a restricted model
-(with these parameters fixed to zero), using the standard chi-square distribution.
-
-However, simulation studies (Oort, 1992, 1998; Kim, Yoon & Lee, 2011/2012) have shown that
-the LR test under MIMIC may suffer from inflated Type I error rates. To address this, Oort proposed
-a correction of the chi-square critical value:
-
-\deqn{K' = \left( \frac{\chi^2_0}{K + df_0 - 1} \right) K}
-
-where:
-\itemize{
-  \item \eqn{K'} is the adjusted critical value,
-  \item \eqn{K} is the original critical value from the chi-square distribution at significance level \eqn{p.crit},
-  \item \eqn{\chi^2_0} is the chi-square statistic of the baseline model,
-  \item \eqn{df_0} is the corresponding degrees of freedom of the baseline model.
-}
-
-Interpretation:
-\itemize{
-  \item The reported \code{p.value} corresponds to the standard chi-square test.
-  \item When \code{Oort.adj = TRUE}, the function also reports the adjusted critical value (\code{crit.Oort}).
-  \item Users can compare the observed chi-square statistic against both thresholds:
-        the conventional critical value (via \code{p.value}) and the Oort-adjusted critical value.
-  \item This comparison allows assessment of how conclusions may differ when controlling for
-        potential inflation of Type I error in MIMIC-PI models.
-}
-
-Note: The Oort adjustment can yield very large critical values when the baseline model has a high chi-square
-relative to its degrees of freedom (e.g., in short tests, 3 or 4 items). This reflects the conservative
-nature of the adjustment: Type I error is strongly controlled, but power to detect DIF may be
-substantially reduced. Users are advised to report both the standard and the Oort-adjusted results,
-and interpret them in light of overall model fit.
 }
 \examples{
 ### Example 1: simulated data -------------
@@ -123,7 +79,7 @@ res.bfi$DIF.Global
 \references{
 Kim, E. S., Yoon, M., & Lee, T. (2011). Testing Measurement Invariance Using MIMIC:
 Likelihood Ratio Test With a Critical Value Adjustment. *Educational and Psychological Measurement, 72*(3), 469–492.
-https://doi.org/10.1177/0013164411427395 (Original work published 2012)
+https://doi.org/10.1177/0013164411427395
 
 Oort, F. J. (1992). Using restricted factor analysis to detect item bias. *Psychological Methods*, 37, 547–567.
 
