@@ -2,7 +2,7 @@
 % Please edit documentation in R/piMIMIClrt.R
 \name{piMIMIClrt}
 \alias{piMIMIClrt}
-\title{Function to Analyze DIF with PI-MIMIC using Likelihood Ratio Tests}
+\title{DIF analysis with PI-MIMIC using Likelihood Ratio Tests (LRT)}
 \usage{
 piMIMIClrt(data, items, cov, lvname = "LatFact", est = "MLM")
 }
@@ -11,44 +11,26 @@ piMIMIClrt(data, items, cov, lvname = "LatFact", est = "MLM")
 
 \item{items}{Character vector of item names.}
 
-\item{cov}{Name of the covariate (must be numeric or factor; if factor, it
-will be converted to numeric).}
+\item{cov}{Name of the covariate (numeric or factor; factors are converted).}
 
-\item{lvname}{Name for the latent variable (default "LatFact").}
+\item{lvname}{Name of the latent variable (default "LatFact").}
 
-\item{est}{Estimator to use in lavaan (e.g., "MLM", "ML", "ULS"). Must be a
-non‑empty character string.}
+\item{est}{Estimator for lavaan (default "MLM"; can be "ML", "ULS", etc.).}
 }
 \value{
-A list with the following components:
-\item{DIF.Global}{Data frame with global DIF test (2 df) for each item:
-  Item, Chi2, df, p.value.}
-\item{DIF.Uniforme}{Data frame with uniform DIF test (1 df) for each item.}
-\item{DIF.NoUniforme}{Data frame with non‑uniform DIF test (1 df).}
-\item{DeltaR2.uDIF}{Data frame with delta R² for uniform DIF (unrestricted R²
-  minus restricted R²).}
-\item{DeltaR2.nuDIF}{Data frame with delta R² for non‑uniform DIF.}
-\item{fit}{The unrestricted lavaan model object.}
+A list with:
+\item{DIF.Global}{Global test (2 df) for each item: Chi2, df, p.value.}
+\item{DIF.Uniforme}{Uniform DIF test (1 df).}
+\item{DIF.NoUniforme}{Non-uniform DIF test (1 df).}
+\item{DeltaR2.uDIF}{Change in R² (unrestricted - restricted) for uniform DIF.}
+\item{DeltaR2.nuDIF}{Change in R² for non-uniform DIF.}
+\item{fit}{Unrestricted lavaan model object.}
 }
 \description{
-This function implements Differential Item Functioning (DIF) analysis using
-the Product of Indicators (PI) approach within the MIMIC framework.
-Unlike the original piMIMIC, this version uses Likelihood Ratio Tests (LRT)
-between unrestricted and restricted models (fixing DIF parameters to zero)
-and reports the change in R² (delta R²) as an effect size measure.
-}
-\details{
-The function constructs a MIMIC model with latent interaction using the
-double‑mean‑centering product indicator method (scripty::prods).
-The unrestricted model includes direct effects of the covariate latent
-variable and the interaction latent variable on each item.
-For each item, three restricted models are fitted:
-1. Global: both direct effects fixed to 0 (2 df test).
-2. Uniform: only the covariate effect fixed to 0 (1 df).
-3. Non‑uniform: only the interaction effect fixed to 0 (1 df).
-LRT compares each restricted model against the unrestricted model.
-Additionally, the R² for each item is extracted from each model, and the
-difference (unrestricted - restricted) is reported as an effect size.
+Implements the product indicator (PI) approach for MIMIC models to detect
+uniform and non-uniform DIF. Uses LRT between unrestricted and restricted
+models (fixing DIF parameters to zero) and reports change in R² as effect size.
+Follows the syntax and logic of Kolbe & Jorgensen (2018), Table 2.
 }
 \examples{
 \dontrun{
@@ -58,7 +40,7 @@ data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
 data.bfi <- data.bfi[complete.cases(data.bfi), ]
 data.bfi$gender <- as.factor(data.bfi$gender)
 neuro.items <- c("N1","N2","N3","N4","N5")
-res <- piMIMIClrt(data = data.bfi, items = neuro.items,
+res <- piMIMIC_lrt(data = data.bfi, items = neuro.items,
                    cov = "gender", lvname = "Neuroticism", est = "MLM")
 res$DIF.Global
 res$DeltaR2.uDIF
