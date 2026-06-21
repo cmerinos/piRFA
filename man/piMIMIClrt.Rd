@@ -2,7 +2,7 @@
 % Please edit documentation in R/piMIMIClrt.R
 \name{piMIMIClrt}
 \alias{piMIMIClrt}
-\title{PI-MIMIC with Likelihood Ratio Tests (LRT) for DIF Detection}
+\title{PI-MIMIC with Effect Sizes (Delta R²) using Score Tests}
 \usage{
 piMIMIClrt(
   data,
@@ -32,22 +32,20 @@ Default is `FALSE`.}
 Only used if `Oort.adj = TRUE`. Default is `0.05`.}
 }
 \value{
-A list with the following components:
+A list with:
 \itemize{
-  \item \code{LRT.Global} - data.frame with columns: Item, global.chi2, df, p.value.
-  \item \code{LRT.Uniforme} - data.frame with columns: Item, uniforme.chi2, df, p.value.
-  \item \code{LRT.NoUniforme} - data.frame with columns: Item, nouniforme.chi2, df, p.value.
-  \item \code{DeltaR2.uDIF} - data.frame with columns: Item, delta_R2.
-  \item \code{DeltaR2.nuDIF} - data.frame with columns: Item, delta_R2.
-  \item \code{fit} - the unrestricted (Model 3) lavaan object, for further inspection or plotting.
+  \item \code{DIF.Global} - data.frame: global.chi2, df, p.value
+  \item \code{DIF.Uniforme} - data.frame: item, uDIF.chi2, df, p.value
+  \item \code{DIF.NoUniforme} - data.frame: item, nuDIF.chi2, df, p.value
+  \item \code{DeltaR2.uDIF} - data.frame: item, delta_R2
+  \item \code{DeltaR2.nuDIF} - data.frame: item, delta_R2
+  \item \code{fit} - unrestricted model (M3) for further use
 }
 }
 \description{
-Implements Differential Item Functioning (DIF) analysis using the Product of Indicators (PI)
-approach within a Multiple-Indicators Multiple-Causes (MIMIC) framework, based on likelihood
-ratio tests (LRT) comparing nested models. This function complements `piMIMIC` (which
-uses score tests) by providing LRT-based inference and additionally calculating effect sizes
-(ΔR²) for uniform and non-uniform DIF.
+Implements DIF detection using the PI-MIMIC framework. It provides significance tests
+via Score tests (as in `piMIMIC`) and additionally calculates effect sizes (ΔR²)
+for uniform and non-uniform DIF by comparing nested models.
 }
 \examples{
 \dontrun{
@@ -57,14 +55,14 @@ data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
 data.bfi <- data.bfi[complete.cases(data.bfi), ]
 data.bfi$gender <- as.factor(data.bfi$gender)
 
-res.lrt <- piMIMIClrt(data = data.bfi,
-                      items = c("N1","N2","N3","N4","N5"),
-                      cov = "gender",
-                      lvname = "Neuroticism",
-                      est = "MLM")
+res <- piMIMIClrt(data = data.bfi,
+                  items = c("N1","N2","N3","N4","N5"),
+                  cov = "gender",
+                  lvname = "Neuroticism",
+                  est = "MLM")
 
-res.lrt$LRT.Global
-res.lrt$DeltaR2.uDIF
+res$DIF.Global
+res$DeltaR2.uDIF
 }
 
 }

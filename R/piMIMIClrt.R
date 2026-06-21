@@ -1,23 +1,21 @@
-#' @title PI-MIMIC with Likelihood Ratio Tests (LRT) for DIF Detection
+#' @title PI-MIMIC with Effect Sizes (Delta R²) using Score Tests
 #'
 #' @description
-#' Implements Differential Item Functioning (DIF) analysis using the Product of Indicators (PI)
-#' approach within a Multiple-Indicators Multiple-Causes (MIMIC) framework, based on likelihood
-#' ratio tests (LRT) comparing nested models. This function complements `piMIMIC` (which
-#' uses score tests) by providing LRT-based inference and additionally calculating effect sizes
-#' (ΔR²) for uniform and non-uniform DIF.
+#' Implements DIF detection using the PI-MIMIC framework. It provides significance tests
+#' via Score tests (as in `piMIMIC`) and additionally calculates effect sizes (ΔR²)
+#' for uniform and non-uniform DIF by comparing nested models.
 #'
 #' @inheritParams piMIMIC
 #'
 #' @return
-#' A list with the following components:
+#' A list with:
 #' \itemize{
-#'   \item \code{LRT.Global} - data.frame with columns: Item, global.chi2, df, p.value.
-#'   \item \code{LRT.Uniforme} - data.frame with columns: Item, uniforme.chi2, df, p.value.
-#'   \item \code{LRT.NoUniforme} - data.frame with columns: Item, nouniforme.chi2, df, p.value.
-#'   \item \code{DeltaR2.uDIF} - data.frame with columns: Item, delta_R2.
-#'   \item \code{DeltaR2.nuDIF} - data.frame with columns: Item, delta_R2.
-#'   \item \code{fit} - the unrestricted (Model 3) lavaan object, for further inspection or plotting.
+#'   \item \code{DIF.Global} - data.frame: global.chi2, df, p.value
+#'   \item \code{DIF.Uniforme} - data.frame: item, uDIF.chi2, df, p.value
+#'   \item \code{DIF.NoUniforme} - data.frame: item, nuDIF.chi2, df, p.value
+#'   \item \code{DeltaR2.uDIF} - data.frame: item, delta_R2
+#'   \item \code{DeltaR2.nuDIF} - data.frame: item, delta_R2
+#'   \item \code{fit} - unrestricted model (M3) for further use
 #' }
 #'
 #' @examples
@@ -28,17 +26,17 @@
 #' data.bfi <- data.bfi[complete.cases(data.bfi), ]
 #' data.bfi$gender <- as.factor(data.bfi$gender)
 #'
-#' res.lrt <- piMIMIClrt(data = data.bfi,
-#'                       items = c("N1","N2","N3","N4","N5"),
-#'                       cov = "gender",
-#'                       lvname = "Neuroticism",
-#'                       est = "MLM")
+#' res <- piMIMIClrt(data = data.bfi,
+#'                   items = c("N1","N2","N3","N4","N5"),
+#'                   cov = "gender",
+#'                   lvname = "Neuroticism",
+#'                   est = "MLM")
 #'
-#' res.lrt$LRT.Global
-#' res.lrt$DeltaR2.uDIF
+#' res$DIF.Global
+#' res$DeltaR2.uDIF
 #' }
 #'
-#' @importFrom lavaan cfa lavTestLRT lavTestScore parameterEstimates inspect
+#' @importFrom lavaan cfa lavTestScore parameterEstimates inspect
 #' @importFrom scripty prods
 #' @export
 piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
@@ -62,7 +60,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     stop(paste("Error: The covariate", cov, "must be either a factor or numeric."))
   }
 
-  # ---- Prepare data with product indicators (using scripty::prods) ----
+  # ---- Prepare data with product indicators ----
   df_pi <- scripty::prods(df = data[, c(items, cov)],
                           covname = cov,
                           match.op = FALSE,
@@ -105,10 +103,8 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     mod_syntax <- base_syntax
 
     if (type == "none") {
-      # Fix both direct and interaction to 0
       constr <- paste0(item, " ~ 0*", cov_lat, " + 0*", int_fac)
     } else if (type == "direct") {
-      # Only interaction fixed to 0
       constr <- paste0(item, " ~ 0*", int_fac)
     } else {
       constr <- NULL
@@ -131,18 +127,15 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
   # ---- Initialize output containers ----
   n_items <- length(items)
 
-  # LRT tables
-  lrt_global <- data.frame(Item = items, global.chi2 = NA_real_, df = 2L, p.value = NA_real_)
-  lrt_uniforme <- data.frame(Item = items, uniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
-  lrt_nouniforme <- data.frame(Item = items, nouniforme.chi2 = NA_real_, df = 1L, p.value = NA_real_)
+  # Tables for Score tests (same structure as piMIMIC)
+  # We'll build them incrementally
+  lrt_global <- data.frame(DIF.Global.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
+  df_dif_uniforme <- data.frame(Item = items, uDIF.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
+  df_dif_nouniforme <- data.frame(Item = items, nuDIF.Chi2 = NA_real_, df = NA_integer_, p.value = NA_real_)
 
-  # Delta R² tables (single column each)
+  # Delta R² tables
   delta_r2_u <- data.frame(Item = items, delta_R2 = NA_real_)
   delta_r2_nu <- data.frame(Item = items, delta_R2 = NA_real_)
-
-  # ---- Determine test method based on estimator ----
-  # For non-ML, use Score tests (more robust)
-  use_score <- !grepl("^ML$", est, ignore.case = TRUE)
 
   # ---- Loop over items ----
   for (i in seq_along(items)) {
@@ -161,7 +154,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     r2_m1_vec <- lavaan::inspect(fit_m1, "rsquare")
     r2_m2_vec <- lavaan::inspect(fit_m2, "rsquare")
 
-    # Ensure we have a scalar
+    # Ensure scalar
     if (is.matrix(r2_m1_vec)) {
       r2_m1 <- r2_m1_vec[item, item]
     } else {
@@ -173,106 +166,43 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
       r2_m2 <- r2_m2_vec[item]
     }
 
-    # Compute ΔR² (ensure numeric)
+    # Compute ΔR²
     delta_r2_u[i, "delta_R2"] <- as.numeric(r2_m2 - r2_m1)
     delta_r2_nu[i, "delta_R2"] <- as.numeric(r2_m3[item] - r2_m2)
 
-    # ---- Perform tests ----
-    if (use_score) {
-      # Use Score tests (similar to piMIMIC)
-      # Global: add both parameters to M1
-      params_global <- c(paste0(item, "~", cov_lat), paste0(item, "~", int_fac))
-      score_global <- tryCatch(
-        lavaan::lavTestScore(fit_m1, add = params_global)$test,
-        error = function(e) NULL
-      )
-      if (!is.null(score_global) && nrow(score_global) > 0) {
-        # Safely extract values
-        chi2_val <- if (!is.null(score_global[1, "X2"])) score_global[1, "X2"] else NA_real_
-        df_val   <- if (!is.null(score_global[1, "df"])) score_global[1, "df"] else NA_integer_
-        p_val    <- if (!is.null(score_global[1, "p"])) score_global[1, "p"] else NA_real_
+    # ---- Score tests (same logic as piMIMIC) ----
+    # Global: add both parameters to M1
+    params_global <- c(paste0(item, "~", cov_lat), paste0(item, "~", int_fac))
+    score_global <- tryCatch(
+      lavaan::lavTestScore(fit_m1, add = params_global)$test,
+      error = function(e) NULL
+    )
+    if (!is.null(score_global) && nrow(score_global) > 0) {
+      lrt_global[i, "DIF.Global.Chi2"] <- round(score_global[1, "X2"], 2)
+      lrt_global[i, "df"] <- score_global[1, "df"]
+      lrt_global[i, "p.value"] <- round(score_global[1, "p"], 3)
+    }
 
-        lrt_global[i, "global.chi2"] <- chi2_val
-        lrt_global[i, "df"] <- df_val
-        lrt_global[i, "p.value"] <- p_val
-      }
+    # Uniform: add only direct effect to M1
+    score_unif <- tryCatch(
+      lavaan::lavTestScore(fit_m1, add = paste0(item, "~", cov_lat))$test,
+      error = function(e) NULL
+    )
+    if (!is.null(score_unif) && nrow(score_unif) > 0) {
+      df_dif_uniforme[i, "uDIF.Chi2"] <- round(score_unif[1, "X2"], 2)
+      df_dif_uniforme[i, "df"] <- score_unif[1, "df"]
+      df_dif_uniforme[i, "p.value"] <- round(score_unif[1, "p"], 3)
+    }
 
-      # Uniform: add only direct effect to M1
-      score_unif <- tryCatch(
-        lavaan::lavTestScore(fit_m1, add = paste0(item, "~", cov_lat))$test,
-        error = function(e) NULL
-      )
-      if (!is.null(score_unif) && nrow(score_unif) > 0) {
-        chi2_val <- if (!is.null(score_unif[1, "X2"])) score_unif[1, "X2"] else NA_real_
-        df_val   <- if (!is.null(score_unif[1, "df"])) score_unif[1, "df"] else NA_integer_
-        p_val    <- if (!is.null(score_unif[1, "p"])) score_unif[1, "p"] else NA_real_
-
-        lrt_uniforme[i, "uniforme.chi2"] <- chi2_val
-        lrt_uniforme[i, "df"] <- df_val
-        lrt_uniforme[i, "p.value"] <- p_val
-      }
-
-      # Non-uniform: add interaction to M2
-      score_nu <- tryCatch(
-        lavaan::lavTestScore(fit_m2, add = paste0(item, "~", int_fac))$test,
-        error = function(e) NULL
-      )
-      if (!is.null(score_nu) && nrow(score_nu) > 0) {
-        chi2_val <- if (!is.null(score_nu[1, "X2"])) score_nu[1, "X2"] else NA_real_
-        df_val   <- if (!is.null(score_nu[1, "df"])) score_nu[1, "df"] else NA_integer_
-        p_val    <- if (!is.null(score_nu[1, "p"])) score_nu[1, "p"] else NA_real_
-
-        lrt_nouniforme[i, "nouniforme.chi2"] <- chi2_val
-        lrt_nouniforme[i, "df"] <- df_val
-        lrt_nouniforme[i, "p.value"] <- p_val
-      }
-
-    } else {
-      # Use LRT (only for ML estimator)
-      # Global: M1 vs M3
-      lrt_global_i <- tryCatch(
-        lavaan::lavTestLRT(fit_m1, fit_m3_full, method = "default"),
-        error = function(e) NULL
-      )
-      if (!is.null(lrt_global_i) && nrow(lrt_global_i) >= 2) {
-        chi2_val <- if (!is.null(lrt_global_i[2, "Chisq diff"])) lrt_global_i[2, "Chisq diff"] else NA_real_
-        df_val   <- if (!is.null(lrt_global_i[2, "Df diff"])) lrt_global_i[2, "Df diff"] else NA_integer_
-        p_val    <- if (!is.null(lrt_global_i[2, "Pr(>Chisq)"])) lrt_global_i[2, "Pr(>Chisq)"] else NA_real_
-
-        lrt_global[i, "global.chi2"] <- chi2_val
-        lrt_global[i, "df"] <- df_val
-        lrt_global[i, "p.value"] <- p_val
-      }
-
-      # Uniform: M1 vs M2
-      lrt_unif_i <- tryCatch(
-        lavaan::lavTestLRT(fit_m1, fit_m2, method = "default"),
-        error = function(e) NULL
-      )
-      if (!is.null(lrt_unif_i) && nrow(lrt_unif_i) >= 2) {
-        chi2_val <- if (!is.null(lrt_unif_i[2, "Chisq diff"])) lrt_unif_i[2, "Chisq diff"] else NA_real_
-        df_val   <- if (!is.null(lrt_unif_i[2, "Df diff"])) lrt_unif_i[2, "Df diff"] else NA_integer_
-        p_val    <- if (!is.null(lrt_unif_i[2, "Pr(>Chisq)"])) lrt_unif_i[2, "Pr(>Chisq)"] else NA_real_
-
-        lrt_uniforme[i, "uniforme.chi2"] <- chi2_val
-        lrt_uniforme[i, "df"] <- df_val
-        lrt_uniforme[i, "p.value"] <- p_val
-      }
-
-      # Non-uniform: M2 vs M3
-      lrt_nounif_i <- tryCatch(
-        lavaan::lavTestLRT(fit_m2, fit_m3_full, method = "default"),
-        error = function(e) NULL
-      )
-      if (!is.null(lrt_nounif_i) && nrow(lrt_nounif_i) >= 2) {
-        chi2_val <- if (!is.null(lrt_nounif_i[2, "Chisq diff"])) lrt_nounif_i[2, "Chisq diff"] else NA_real_
-        df_val   <- if (!is.null(lrt_nounif_i[2, "Df diff"])) lrt_nounif_i[2, "Df diff"] else NA_integer_
-        p_val    <- if (!is.null(lrt_nounif_i[2, "Pr(>Chisq)"])) lrt_nounif_i[2, "Pr(>Chisq)"] else NA_real_
-
-        lrt_nouniforme[i, "nouniforme.chi2"] <- chi2_val
-        lrt_nouniforme[i, "df"] <- df_val
-        lrt_nouniforme[i, "p.value"] <- p_val
-      }
+    # Non-uniform: add interaction to M2
+    score_nu <- tryCatch(
+      lavaan::lavTestScore(fit_m2, add = paste0(item, "~", int_fac))$test,
+      error = function(e) NULL
+    )
+    if (!is.null(score_nu) && nrow(score_nu) > 0) {
+      df_dif_nouniforme[i, "nuDIF.Chi2"] <- round(score_nu[1, "X2"], 2)
+      df_dif_nouniforme[i, "df"] <- score_nu[1, "df"]
+      df_dif_nouniforme[i, "p.value"] <- round(score_nu[1, "p"], 3)
     }
   }
 
@@ -292,15 +222,15 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
     }
 
     lrt_global <- add_oort(lrt_global, "df")
-    lrt_uniforme <- add_oort(lrt_uniforme, "df")
-    lrt_nouniforme <- add_oort(lrt_nouniforme, "df")
+    df_dif_uniforme <- add_oort(df_dif_uniforme, "df")
+    df_dif_nouniforme <- add_oort(df_dif_nouniforme, "df")
   }
 
   # ---- Prepare output ----
   out <- list(
-    LRT.Global = lrt_global,
-    LRT.Uniforme = lrt_uniforme,
-    LRT.NoUniforme = lrt_nouniforme,
+    DIF.Global = lrt_global,
+    DIF.Uniforme = df_dif_uniforme,
+    DIF.NoUniforme = df_dif_nouniforme,
     DeltaR2.uDIF = delta_r2_u,
     DeltaR2.nuDIF = delta_r2_nu,
     fit = fit_m3_full
@@ -312,14 +242,14 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact",
 
 #' @export
 print.piMIMIClrt <- function(x, ...) {
-  cat("PI-MIMIC LRT Results\n")
-  cat("=====================\n\n")
-  cat("Global DIF (M1 vs M3):\n")
-  print(x$LRT.Global)
-  cat("\nUniform DIF (M1 vs M2):\n")
-  print(x$LRT.Uniforme)
-  cat("\nNon-uniform DIF (M2 vs M3):\n")
-  print(x$LRT.NoUniforme)
+  cat("PI-MIMIC LRT Results (Score tests with effect sizes)\n")
+  cat("===================================================\n\n")
+  cat("Global DIF (both effects):\n")
+  print(x$DIF.Global)
+  cat("\nUniform DIF (direct effect):\n")
+  print(x$DIF.Uniforme)
+  cat("\nNon-uniform DIF (interaction):\n")
+  print(x$DIF.NoUniforme)
   cat("\nDelta R² for Uniform DIF:\n")
   print(x$DeltaR2.uDIF)
   cat("\nDelta R² for Non-uniform DIF:\n")
