@@ -34,7 +34,7 @@ Only used if `Oort.adj = TRUE`. Default is `0.05`.}
 \value{
 A list with:
 \itemize{
-  \item \code{DIF.Global} - data.frame: global.chi2, df, p.value
+  \item \code{DIF.Global} - data.frame: global.chi2, df, p.value (same as `piMIMIC`)
   \item \code{DIF.Uniforme} - data.frame: item, uDIF.chi2, df, p.value
   \item \code{DIF.NoUniforme} - data.frame: item, nuDIF.chi2, df, p.value
   \item \code{DeltaR2.uDIF} - data.frame: item, delta_R2
@@ -46,23 +46,4 @@ A list with:
 Implements DIF detection using the PI-MIMIC framework. It provides significance tests
 via Score tests (as in `piMIMIC`) and additionally calculates effect sizes (ΔR²)
 for uniform and non-uniform DIF by comparing nested models.
-}
-\examples{
-\dontrun{
-library(psych)
-data("bfi")
-data.bfi <- bfi[, c("N1","N2","N3","N4","N5","gender")]
-data.bfi <- data.bfi[complete.cases(data.bfi), ]
-data.bfi$gender <- as.factor(data.bfi$gender)
-
-res <- piMIMIClrt(data = data.bfi,
-                  items = c("N1","N2","N3","N4","N5"),
-                  cov = "gender",
-                  lvname = "Neuroticism",
-                  est = "MLM")
-
-res$DIF.Global
-res$DeltaR2.uDIF
-}
-
 }
