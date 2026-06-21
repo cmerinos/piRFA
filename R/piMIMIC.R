@@ -1,30 +1,25 @@
-#' @title Function to Analyze DIF with PI-RFA/MIMIC (Product of Indicators)
+#' @title DIF analysis using PI-MIMIC with Score Test (Oort adjustment optional)
 #'
 #' @description
-#' The `piMIMIC` function analyzes Differential Item Functioning (DIF)
-#' using the multiple-indicators multiple-causes (MIMIC) framework with product of indicators (PI).
-#' It relies on `lavaan` and `scripty`. Uniform and non-uniform DIF can be evaluated in a measurement scale,
-#' through statistical tests and an effect size approximation with SPEC of releases parameter.
+#' Implements the product indicator (PI) approach for MIMIC models to detect
+#' uniform and non‑uniform DIF using the score test (modification indices).
+#' Optionally applies Oort's critical value adjustment to control Type I error.
 #'
-#' @param data DataFrame containing items and the covariate.
-#' @param items Vector of item names within `data`.
-#' @param cov Name of the covariate in `data` (can be categorical or numeric). If categorical, it must be a factor.
-#' @param lvname Name for the latent variable in the model (default is `"LatFact"`).
-#' @param est Abbreviation of the estimator to use. Must be a non-empty string (see lavaan documentation).
-#' @param Oort.adj Logical. If `TRUE`, applies Oort's critical value adjustment to likelihood ratio (LR) tests.
-#'                 Default is `FALSE`.
-#' @param p.crit Numeric. Significance level used to compute the chi-square critical value (e.g., 0.05, 0.01, 0.10).
-#'               Only used if `Oort.adj = TRUE`. Default is `0.05`.
+#' @param data Data frame containing items and the covariate.
+#' @param items Character vector of item names.
+#' @param cov Name of the covariate (numeric or factor).
+#' @param lvname Name of the latent variable (default "LatFact").
+#' @param est Estimator for lavaan (default "MLM").
+#' @param Oort.adj Logical; if `TRUE`, applies Oort's adjustment to the critical value.
+#' @param p.crit Numeric; significance level for the Oort adjustment.
 #'
-#' @return
-#' The function returns a list with the following DataFrames:
-#'  \itemize{
-#'    \item \code{DIF.Global} - Global DIF results (includes Oort-adjusted critical value if requested).
-#'    \item \code{DIF.Uniforme} - Uniform DIF results.
-#'    \item \code{DIF.NoUniforme} - Non-uniform DIF results.
-#'    \item \code{SEPC.uDIF} - SEPC coefficients for uniform DIF.
-#'    \item \code{SEPC.nuDIF} - SEPC coefficients for non-uniform DIF.
-#'  }
+#' @return A list with:
+#' \item{DIF.Global}{Data frame with global DIF test (2 df): Chi², df, p-value, and Oort critical value if requested.}
+#' \item{DIF.Uniforme}{Data frame with uniform DIF test (1 df).}
+#' \item{DIF.NoUniforme}{Data frame with non‑uniform DIF test (1 df).}
+#' \item{SEPC.uDIF}{Standardized expected parameter change for uniform DIF.}
+#' \item{SEPC.nuDIF}{Standardized expected parameter change for non‑uniform DIF.}
+#' \item{fit}{The fitted lavaan object.}
 #'
 #' @details
 #' This function implements Differential Item Functioning (DIF) analysis using
@@ -35,15 +30,18 @@
 #' with covariates that can be categorical (e.g., sex) or continuous (e.g., self-esteem, conscientiousness).
 #'
 #' Estimation is performed via `lavaan::cfa`, and DIF statistical tests are based
-#' on the likelihood ratio test (LRT). By default, chi-square tests compare an unrestricted model
+#' on the Score test (LRT). By default, chi-square tests compare an unrestricted model
 #' (with covariate effect and interaction parameters freely estimated) and a restricted model
 #' (with these parameters fixed to zero), using the standard chi-square distribution.
 #'
-#' However, simulation studies (Oort, 1992, 1998; Kim, Yoon & Lee, 2011) have shown that
+#' Simulation studies (Oort, 1992, 1998; Kim, Yoon & Lee, 2011) have shown that
 #' the LR test under MIMIC may suffer from inflated Type I error rates. To address this, Oort proposed
 #' a correction of the chi-square critical value:
 #'
-#' \deqn{K' = \left( \frac{\chi^2_0}{K + df_0 - 1} \right) K}
+#' \deqn{K' = (χ²₀ / (K + df₀ - 1)) * K}
+#' where χ²₀ and df₀ are from the baseline (full invariance) model, and K is
+#' the original critical value. This adjustment is recommended when the baseline
+#' model shows evidence of misfit (χ²₀/df₀ > 1), as it helps control Type I error.
 #'
 #' where:
 #' \itemize{
@@ -61,13 +59,6 @@
 #'         the conventional critical value (via \code{p.value}) and the Oort-adjusted critical value.
 #'   \item This comparison allows assessment of how conclusions may differ when controlling for
 #'         potential inflation of Type I error in MIMIC-PI models.
-#' }
-#'
-#'Note: The Oort adjustment can yield very large critical values when the baseline model has a high chi-square
-#'relative to its degrees of freedom (e.g., in short tests, 3 or 4 items). This reflects the conservative
-#'nature of the adjustment: Type I error is strongly controlled, but power to detect DIF may be
-#'substantially reduced. Users are advised to report both the standard and the Oort-adjusted results,
-#'and interpret them in light of overall model fit.
 #'
 #' @examples
 #' ### Example 1: simulated data -------------
@@ -131,90 +122,13 @@
 #'
 #' @importFrom lavaan cfa lavTestScore parameterestimates
 #' @importFrom scripty prods mimicparam
+#'
 #' @export
 piMIMIC <- function(data, items, cov, lvname = "LatFact", est = "MLM",
-                  Oort.adj = FALSE, p.crit = 0.05) {
+                    Oort.adj = FALSE, p.crit = 0.05) {
 
   if (!is.character(est) || nchar(est) == 0) {
     stop("Error: Estimator must be a non-empty string (see lavaan documentation).")
-  }
-
-  mimicout_modificado <- function(fit.mimic, mimic.param, cov, Oort.adj, p.crit) {
-    ests <- as.data.frame(lavaan::parameterestimates(fit.mimic))
-    uniqnames <- unique(ests$lhs)
-    lvname <- uniqnames[1]
-
-    any.out <- do.call(rbind, lapply(mimic.param, function(x)
-      lavaan::lavTestScore(fit.mimic, add = x)$test))
-
-    sep.out <- lavaan::lavTestScore(fit.mimic, add = as.character(mimic.param))
-
-    # Baseline chi2 and df
-    baseline <- fit.mimic@test$standard
-    chi0 <- as.numeric(baseline[["stat"]])
-    df0  <- as.numeric(baseline[["df"]])
-
-    # Oort adjustment
-    add_oort <- function(df_table) {
-      if (!Oort.adj) return(df_table)
-      df_vals <- df_table$df
-      K <- qchisq(1 - p.crit, df_vals)
-      crit.Oort <- (chi0 / (K + df0 - 1)) * K
-      df_table$crit.Oort <- round(crit.Oort, 3)
-      df_table
-    }
-
-    # DIF.Global
-    df_dif_global <- data.frame(
-      DIF.Global.Chi2 = round(any.out$X2, 2),
-      df = any.out$df,
-      p.value = round(any.out$p, 3)
-    )
-    df_dif_global <- add_oort(df_dif_global)
-
-    # DIF.Uniforme
-    oddnum <- seq(1, length(sep.out$uni$lhs), 2)
-    df_dif_uniforme <- data.frame(
-      Item = sep.out$uni$lhs[oddnum],
-      uDIF.Chi2 = round(sep.out$uni$X2[oddnum], 2),
-      df = sep.out$uni$df[oddnum],
-      p.value = sep.out$uni$p.value[oddnum]
-    )
-    df_dif_uniforme <- add_oort(df_dif_uniforme)
-
-    # DIF.NoUniforme
-    evennum <- seq(2, length(sep.out$uni$lhs), 2)
-    df_dif_nouniforme <- data.frame(
-      Item = sep.out$uni$lhs[evennum],
-      nuDIF.Chi2 = round(sep.out$uni$X2[evennum], 2),
-      df = sep.out$uni$df[evennum],
-      p.value = sep.out$uni$p.value[evennum]
-    )
-    df_dif_nouniforme <- add_oort(df_dif_nouniforme)
-
-    # SEPC
-    sepc_values <- lavaan::lavTestScore(fit.mimic,
-                                        add = as.character(mimic.param),
-                                        univariate = TRUE,
-                                        standardized = TRUE,
-                                        cov.std = TRUE,
-                                        epc = TRUE)$epc
-
-    df_sepc <- sepc_values[sepc_values$lhs %in% items &
-                             sepc_values$rhs %in% c(paste0(cov, "lat"), paste0("LFacX", cov)),
-                           c("lhs", "op", "rhs", "epc", "sepc.all")]
-
-    colnames(df_sepc) <- c("Item", "Operator", "Effect", "EPC", "SEPC.ALL")
-    df_sepc_u <- df_sepc[grepl("lat$", df_sepc$Effect), ]
-    df_sepc_nu <- df_sepc[grepl("^LFacX", df_sepc$Effect), ]
-
-    return(list(
-      DIF.Global = df_dif_global,
-      DIF.Uniforme = df_dif_uniforme,
-      DIF.NoUniforme = df_dif_nouniforme,
-      SEPC.uDIF = df_sepc_u,
-      SEPC.nuDIF = df_sepc_nu
-    ))
   }
 
   cov_lat <- paste0(cov, "lat")
@@ -244,12 +158,90 @@ piMIMIC <- function(data, items, cov, lvname = "LatFact", est = "MLM",
     paste(paste0(items, " ~~ ", items, ".", cov), collapse = "\n")
   )
 
-  fit <- cfa(model_mimic,
-             data = df_pi,
-             estimator = est,
-             meanstructure = TRUE)
+  fit <- lavaan::cfa(model_mimic,
+                     data = df_pi,
+                     estimator = est,
+                     meanstructure = TRUE)
 
   mimic_param <- scripty::mimicparam(fit)
+
+  # --- Función interna para extraer resultados ---
+  mimicout_modificado <- function(fit.mimic, mimic.param, cov, Oort.adj, p.crit) {
+    ests <- as.data.frame(lavaan::parameterestimates(fit.mimic))
+    uniqnames <- unique(ests$lhs)
+    lvname <- uniqnames[1]
+
+    any.out <- do.call(rbind, lapply(mimic.param, function(x)
+      lavaan::lavTestScore(fit.mimic, add = x)$test))
+
+    sep.out <- lavaan::lavTestScore(fit.mimic, add = as.character(mimic.param))
+
+    # Baseline chi2 and df
+    baseline <- fit.mimic@test$standard
+    chi0 <- as.numeric(baseline[["stat"]])
+    df0  <- as.numeric(baseline[["df"]])
+
+    # Oort adjustment (critical values)
+    if (Oort.adj) {
+      K_global <- qchisq(1 - p.crit, 2)
+      K_uniform <- qchisq(1 - p.crit, 1)
+      crit.global <- (chi0 / (K_global + df0 - 1)) * K_global
+      crit.uniform <- (chi0 / (K_uniform + df0 - 1)) * K_uniform
+    }
+
+    # DIF.Global
+    df_dif_global <- data.frame(
+      Item = items,
+      Chi2 = round(any.out$X2, 3),
+      df = any.out$df,
+      p.value = round(any.out$p, 4)
+    )
+    if (Oort.adj) df_dif_global$crit.Oort <- round(crit.global, 3)
+
+    # DIF.Uniforme
+    oddnum <- seq(1, length(sep.out$uni$lhs), 2)
+    df_dif_uniforme <- data.frame(
+      Item = gsub("~.*$", "", sep.out$uni$lhs[oddnum]),
+      Chi2 = round(sep.out$uni$X2[oddnum], 3),
+      df = sep.out$uni$df[oddnum],
+      p.value = round(sep.out$uni$p.value[oddnum], 4)
+    )
+    if (Oort.adj) df_dif_uniforme$crit.Oort <- round(crit.uniform, 3)
+
+    # DIF.NoUniforme
+    evennum <- seq(2, length(sep.out$uni$lhs), 2)
+    df_dif_nouniforme <- data.frame(
+      Item = gsub("~.*$", "", sep.out$uni$lhs[evennum]),
+      Chi2 = round(sep.out$uni$X2[evennum], 3),
+      df = sep.out$uni$df[evennum],
+      p.value = round(sep.out$uni$p.value[evennum], 4)
+    )
+    if (Oort.adj) df_dif_nouniforme$crit.Oort <- round(crit.uniform, 3)
+
+    # SEPC
+    sepc_values <- lavaan::lavTestScore(fit.mimic,
+                                        add = as.character(mimic.param),
+                                        univariate = TRUE,
+                                        standardized = TRUE,
+                                        cov.std = TRUE,
+                                        epc = TRUE)$epc
+
+    df_sepc <- sepc_values[sepc_values$lhs %in% items &
+                             sepc_values$rhs %in% c(paste0(cov, "lat"), paste0("LFacX", cov)),
+                           c("lhs", "op", "rhs", "epc", "sepc.all")]
+
+    colnames(df_sepc) <- c("Item", "Operator", "Effect", "EPC", "SEPC.ALL")
+    df_sepc_u <- df_sepc[grepl("lat$", df_sepc$Effect), ]
+    df_sepc_nu <- df_sepc[grepl("^LFacX", df_sepc$Effect), ]
+
+    return(list(
+      DIF.Global = df_dif_global,
+      DIF.Uniforme = df_dif_uniforme,
+      DIF.NoUniforme = df_dif_nouniforme,
+      SEPC.uDIF = df_sepc_u,
+      SEPC.nuDIF = df_sepc_nu
+    ))
+  }
 
   resultados_DIF <- mimicout_modificado(fit, mimic_param, cov, Oort.adj, p.crit)
   resultados_DIF$fit <- fit
