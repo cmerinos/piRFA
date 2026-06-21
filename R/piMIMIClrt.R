@@ -28,7 +28,7 @@
 #' data.bfi <- data.bfi[complete.cases(data.bfi), ]
 #' data.bfi$gender <- as.factor(data.bfi$gender)
 #' neuro.items <- c("N1","N2","N3","N4","N5")
-#' res <- piMIMIC_lrt(data = data.bfi, items = neuro.items,
+#' res <- piMIMIClrt(data = data.bfi, items = neuro.items,
 #'                    cov = "gender", lvname = "Neuroticism", est = "MLM")
 #' res$DIF.Global
 #' res$DeltaR2.uDIF
@@ -83,21 +83,12 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
   reg_lines <- paste0(cov_lat, " + ", int_name, " =~ ", items)
   unrestricted_syntax <- paste0(base_syntax, "\n", paste(reg_lines, collapse = "\n"))
 
-  # ---- Fit unrestricted model ----
-  fit_un <- tryCatch(
-    lavaan::cfa(unrestricted_syntax,
-                data = df_pi,
-                estimator = est,
-                meanstructure = TRUE),
-    error = function(e) {
-      # If fails, try with se = "none" to avoid inversion issues
-      lavaan::cfa(unrestricted_syntax,
-                  data = df_pi,
-                  estimator = est,
-                  meanstructure = TRUE,
-                  se = "none")
-    }
-  )
+  # ---- Fit unrestricted model with se = "none" to avoid inversion problems ----
+  fit_un <- lavaan::cfa(unrestricted_syntax,
+                        data = df_pi,
+                        estimator = est,
+                        meanstructure = TRUE,
+                        se = "none")
 
   # R² for items in unrestricted model
   r2_un <- lavaan::lavInspect(fit_un, "rsquare")[items]
@@ -120,56 +111,27 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
     # --- Global restriction: remove the entire regression line for this item ---
     kept_global <- reg_lines[-i]
     syntax_global <- paste0(base_syntax, "\n", paste(kept_global, collapse = "\n"))
-    fit_global <- tryCatch(
-      lavaan::cfa(syntax_global,
-                  data = df_pi,
-                  estimator = est,
-                  meanstructure = TRUE),
-      error = function(e) {
-        lavaan::cfa(syntax_global,
-                    data = df_pi,
-                    estimator = est,
-                    meanstructure = TRUE,
-                    se = "none")
-      }
-    )
-    # LRT global (2 df)
-    lrt_global <- tryCatch(
-      lavaan::lavTestLRT(fit_global, fit_un, method = "default"),
-      error = function(e) {
-        # fallback to anova if lavTestLRT fails
-        stats::anova(fit_global, fit_un)
-      }
-    )
+    fit_global <- lavaan::cfa(syntax_global,
+                              data = df_pi,
+                              estimator = est,
+                              meanstructure = TRUE,
+                              se = "none")
+    # LRT global (2 df) using standard method (no robust correction needed)
+    lrt_global <- lavaan::lavTestLRT(fit_global, fit_un, method = "standard")
     out_global$Chi2[i] <- lrt_global[2, "Chisq diff"]
     out_global$df[i]   <- lrt_global[2, "Df diff"]
     out_global$p.value[i] <- lrt_global[2, "Pr(>Chisq)"]
 
-    # R² for this item in global restricted model (only for this item)
-    r2_global_it <- lavaan::lavInspect(fit_global, "rsquare")[it]
-
     # --- Uniform restriction: remove cov_lat effect, keep int_name ---
-    # Replace the line with only "int_name =~ item" (i.e., item ~ int_name)
     reg_uniform <- reg_lines
     reg_uniform[i] <- paste0(int_name, " =~ ", it)
     syntax_uniform <- paste0(base_syntax, "\n", paste(reg_uniform, collapse = "\n"))
-    fit_uniform <- tryCatch(
-      lavaan::cfa(syntax_uniform,
-                  data = df_pi,
-                  estimator = est,
-                  meanstructure = TRUE),
-      error = function(e) {
-        lavaan::cfa(syntax_uniform,
-                    data = df_pi,
-                    estimator = est,
-                    meanstructure = TRUE,
-                    se = "none")
-      }
-    )
-    lrt_uniform <- tryCatch(
-      lavaan::lavTestLRT(fit_uniform, fit_un, method = "default"),
-      error = function(e) stats::anova(fit_uniform, fit_un)
-    )
+    fit_uniform <- lavaan::cfa(syntax_uniform,
+                               data = df_pi,
+                               estimator = est,
+                               meanstructure = TRUE,
+                               se = "none")
+    lrt_uniform <- lavaan::lavTestLRT(fit_uniform, fit_un, method = "standard")
     out_uniform$Chi2[i] <- lrt_uniform[2, "Chisq diff"]
     out_uniform$df[i]   <- lrt_uniform[2, "Df diff"]
     out_uniform$p.value[i] <- lrt_uniform[2, "Pr(>Chisq)"]
@@ -181,23 +143,12 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM") {
     reg_nouniform <- reg_lines
     reg_nouniform[i] <- paste0(cov_lat, " =~ ", it)
     syntax_nouniform <- paste0(base_syntax, "\n", paste(reg_nouniform, collapse = "\n"))
-    fit_nouniform <- tryCatch(
-      lavaan::cfa(syntax_nouniform,
-                  data = df_pi,
-                  estimator = est,
-                  meanstructure = TRUE),
-      error = function(e) {
-        lavaan::cfa(syntax_nouniform,
-                    data = df_pi,
-                    estimator = est,
-                    meanstructure = TRUE,
-                    se = "none")
-      }
-    )
-    lrt_nouniform <- tryCatch(
-      lavaan::lavTestLRT(fit_nouniform, fit_un, method = "default"),
-      error = function(e) stats::anova(fit_nouniform, fit_un)
-    )
+    fit_nouniform <- lavaan::cfa(syntax_nouniform,
+                                 data = df_pi,
+                                 estimator = est,
+                                 meanstructure = TRUE,
+                                 se = "none")
+    lrt_nouniform <- lavaan::lavTestLRT(fit_nouniform, fit_un, method = "standard")
     out_nouniform$Chi2[i] <- lrt_nouniform[2, "Chisq diff"]
     out_nouniform$df[i]   <- lrt_nouniform[2, "Df diff"]
     out_nouniform$p.value[i] <- lrt_nouniform[2, "Pr(>Chisq)"]
