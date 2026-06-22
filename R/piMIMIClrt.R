@@ -4,19 +4,20 @@
 #' Implements the product indicator (PI) approach for MIMIC models to detect
 #' uniform and non‑uniform DIF. Uses LRT between unrestricted and restricted
 #' models and reports change in R² as effect size. Optionally applies Oort's
-#' critical value adjustment to control Type I error inflation. Follows the
-#' syntax and logic of Kolbe & Jorgensen (2018), Table 2.
+#' critical value adjustment to control Type I error inflation.
 #'
 #' @param data Data frame containing items and the covariate.
 #' @param items Character vector of item names.
 #' @param cov Name of the covariate (numeric or factor; factors are converted).
 #' @param lvname Name of the latent variable (default "LatFact").
 #' @param est Estimator for lavaan (default "MLM"; can be "ML", "ULS", etc.).
-#' @param anchor Optional: `NULL` (use last two items), `"none"` (no anchors),
-#'        or a character vector of item names to use as anchors.
+#' @param anchor Must be one of:
+#'        * `"rest"`: iterative "un‑contra‑todos" approach (each item tested against all others as anchors).
+#'        * `"none"`: no fixed anchors (all items are tested against a model without effects).
+#'        * A character vector with specific item names to use as fixed anchors (at least two recommended).
 #' @param Oort.adj Logical; if `TRUE`, applies Oort's critical value adjustment.
 #' @param p.crit Numeric; significance level for the Oort adjustment (default 0.05).
-#' @param return_models Logical; if `TRUE`, returns the fitted model objects.
+#' @param return_models Logical; if `TRUE`, returns the fitted model objects (only for the last iteration if `anchor = "rest"`).
 #' @param adjust Character; p-value adjustment method passed to `p.adjust`
 #'        (e.g., "bonferroni", "holm", "fdr"). Default "none".
 #' @param ... Additional arguments passed to `lavaan::cfa`.
@@ -28,20 +29,27 @@
 #' \item{DeltaR2.Global}{Data frame: Item, DeltaR² (full vs no‑DIF model).}
 #' \item{DeltaR2.uDIF}{Data frame: Item, DeltaR² (full vs b=0 model).}
 #' \item{DeltaR2.nuDIF}{Data frame: Item, DeltaR² (full vs c=0 model).}
-#' \item{fit}{The fitted unrestricted (full) lavaan object.}
-#' \item{constrained_fits}{If `return_models=TRUE`, a nested list of fitted models.}
+#' \item{fit}{The fitted unrestricted (full) lavaan object (only for fixed anchors or `"none"`; `NULL` for `"rest"`).}
+#' \item{constrained_fits}{If `return_models=TRUE`, a nested list of fitted models (only for fixed anchors or `"none"`; `NULL` for `"rest"`).}
 #'
 #' @details
+#' When `anchor = "rest"`, the function iterates over each item, treating all other
+#' items as anchors. This is the approach described in Oort (1998) and commonly used
+#' in MIMIC DIF detection. It does not require pre‑selected anchor items and is
+#' suitable when no clear anchor set is available.
+#'
+#' When `anchor = "none"`, all items are evaluated against a model with no effects
+#' (i.e., the baseline model is fully invariant). This is equivalent to a single‑step
+#' score test, but using LRT.
+#'
+#' When a character vector of item names is provided, those items are used as fixed
+#' anchors (they never have DIF effects). The remaining items are tested.
+#'
 #' The Oort adjustment modifies the critical chi-square value:
 #' \deqn{K' = (χ²₀ / (K + df₀ - 1)) * K}
 #' where χ²₀ and df₀ are from the baseline (full invariance) model, and K is
 #' the original critical value. This adjustment is recommended when the baseline
 #' model shows evidence of misfit (χ²₀/df₀ > 1), as it helps control Type I error.
-#'
-#' **Anchor items**: At least two anchor items are recommended for identification,
-#' but the function allows one or zero anchors (use `anchor = "none"`). With fewer
-#' than two anchors, a warning is issued, but the model may still converge because
-#' the latent factor is identified by fixing the first loading to 1 (default in lavaan).
 #'
 #' @references
 #' Oort, F. J. (1998). Simulation study of item bias detection with restricted
@@ -52,31 +60,101 @@
 #' In *Quantitative Psychology* (pp. 235–245). Springer.
 #'
 #' @importFrom lavaan cfa lavTestLRT lavInspect
-#' @importFrom semTools indProd
-#' @importFrom stats p.adjust qchisq
 #' @importFrom scripty prods
-#'
+#' @importFrom stats p.adjust qchisq
 #' @export
 piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM",
-                       anchor = NULL, Oort.adj = FALSE, p.crit = 0.05,
+                       anchor, Oort.adj = FALSE, p.crit = 0.05,
                        return_models = FALSE, adjust = "none", ...) {
 
-  # ---- Chequeos básicos ----
-  if (!requireNamespace("semTools", quietly = TRUE)) {
-    stop("Package 'semTools' is required for product indicator creation.")
+  # ---- Verificar que anchor esté especificado ----
+  if (missing(anchor)) {
+    stop("You must specify 'anchor'. Use 'rest' for iterative approach, 'none' for no anchors, or a vector of item names.")
   }
-  if (!all(items %in% names(data))) stop("Some items not found in data.")
-  if (!cov %in% names(data)) stop("Covariate variable not found in data.")
 
-  # ---- Procesamiento de anchor ----
-  if (is.null(anchor)) {
-    anchor_items <- tail(items, 2)
-    message("No anchor items provided. Using the last two items as anchors: ",
-            paste(anchor_items, collapse = ", "))
-  } else if (length(anchor) == 1 && anchor == "none") {
+  # ---- Si anchor == "rest" (iterativo "un-contra-todos") ----
+  if (length(anchor) == 1 && anchor == "rest") {
+    message("Using 'rest' approach: each item is tested against all other items as anchors.")
+    message("Consider using at least two fixed anchors for better identification, if available.")
+
+    n_items <- length(items)
+    # Inicializar tablas de resultados
+    res_global <- data.frame(Item = items, Chi2 = NA, df = 2, p.value = NA)
+    res_uniform <- data.frame(Item = items, Chi2 = NA, df = 1, p.value = NA)
+    res_nonuniform <- data.frame(Item = items, Chi2 = NA, df = 1, p.value = NA)
+    delta_global <- data.frame(Item = items, DeltaR2 = NA)
+    delta_uniform <- data.frame(Item = items, DeltaR2 = NA)
+    delta_nonuniform <- data.frame(Item = items, DeltaR2 = NA)
+
+    if (Oort.adj) {
+      res_global$crit.Oort <- NA
+      res_uniform$crit.Oort <- NA
+      res_nonuniform$crit.Oort <- NA
+    }
+
+    # Bucle sobre cada ítem
+    for (i in seq_along(items)) {
+      item_eval <- items[i]
+      anchors_rest <- items[-i]  # todos los demás como anclas
+
+      # Llamada recursiva con los anclas específicos
+      sub_result <- piMIMIClrt(
+        data = data,
+        items = items,
+        cov = cov,
+        lvname = lvname,
+        est = est,
+        anchor = anchors_rest,
+        Oort.adj = Oort.adj,
+        p.crit = p.crit,
+        return_models = FALSE,
+        adjust = "none",
+        ...
+      )
+
+      # Extraer resultados para el ítem evaluado (única fila en cada tabla)
+      res_global[i, c("Chi2", "p.value")] <- sub_result$DIF.Global[1, c("Chi2", "p.value")]
+      res_uniform[i, c("Chi2", "p.value")] <- sub_result$DIF.Uniforme[1, c("Chi2", "p.value")]
+      res_nonuniform[i, c("Chi2", "p.value")] <- sub_result$DIF.NoUniforme[1, c("Chi2", "p.value")]
+
+      if (Oort.adj) {
+        res_global[i, "crit.Oort"] <- sub_result$DIF.Global[1, "crit.Oort"]
+        res_uniform[i, "crit.Oort"] <- sub_result$DIF.Uniforme[1, "crit.Oort"]
+        res_nonuniform[i, "crit.Oort"] <- sub_result$DIF.NoUniforme[1, "crit.Oort"]
+      }
+
+      delta_global[i, "DeltaR2"] <- sub_result$DeltaR2.Global[1, "DeltaR2"]
+      delta_uniform[i, "DeltaR2"] <- sub_result$DeltaR2.uDIF[1, "DeltaR2"]
+      delta_nonuniform[i, "DeltaR2"] <- sub_result$DeltaR2.nuDIF[1, "DeltaR2"]
+    }
+
+    # Ajuste de p-valores si se solicita
+    if (adjust != "none") {
+      res_global$p.value <- stats::p.adjust(res_global$p.value, method = adjust)
+      res_uniform$p.value <- stats::p.adjust(res_uniform$p.value, method = adjust)
+      res_nonuniform$p.value <- stats::p.adjust(res_nonuniform$p.value, method = adjust)
+    }
+
+    out <- list(
+      DIF.Global = res_global,
+      DIF.Uniforme = res_uniform,
+      DIF.NoUniforme = res_nonuniform,
+      DeltaR2.Global = delta_global,
+      DeltaR2.uDIF = delta_uniform,
+      DeltaR2.nuDIF = delta_nonuniform,
+      fit = NULL,
+      constrained_fits = NULL
+    )
+    class(out) <- "piMIMIC"
+    return(out)
+  }
+
+  # ---- Si anchor == "none" (sin anclas fijas) ----
+  if (length(anchor) == 1 && anchor == "none") {
     anchor_items <- character(0)
     message("No anchor items specified. All items will be tested for DIF.")
   } else {
+    # ---- Vector de nombres de ítems como anclas fijas ----
     anchor_items <- anchor
     if (!all(anchor_items %in% items)) {
       stop("All anchor items must be in 'items'.")
@@ -85,6 +163,7 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM",
       warning("Using only one anchor item may lead to identification issues.",
               " Consider using at least two anchors.")
     }
+    message("Using fixed anchors: ", paste(anchor_items, collapse = ", "))
   }
 
   tested_items <- setdiff(items, anchor_items)
@@ -100,13 +179,15 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM",
   cov_centered <- cov_num - mean(cov_num, na.rm = TRUE)
   data[[paste0(cov, "_cent")]] <- cov_centered
 
-  # ---- Crear productos indicadores (double‑mean‑centering) ----
-  prod_data <- semTools::indProd(
-    data = data,
-    x = items,
-    y = paste0(cov, "_cent"),
-    doubleMC = TRUE,
-    match = FALSE
+  # ---- Crear productos indicadores (double‑mean‑centering) usando scripty ----
+  if (!requireNamespace("scripty", quietly = TRUE)) {
+    stop("Package 'scripty' is required for product indicator creation.")
+  }
+  prod_data <- scripty::prods(
+    df = data[, c(items, paste0(cov, "_cent"))],
+    covname = paste0(cov, "_cent"),
+    match.op = FALSE,
+    doubleMC.op = TRUE
   )
   prod_names <- paste0(items, ".", cov, "_cent")
   if (!all(prod_names %in% names(prod_data))) {
@@ -155,20 +236,16 @@ piMIMIClrt <- function(data, items, cov, lvname = "LatFact", est = "MLM",
 
   # ---- Modelo base para el ajuste Oort (sin efectos) ----
   if (Oort.adj) {
-    # Eliminar todas las regresiones de los ítems no ancla
     base_model <- model_full
     for (i in seq_along(tested_items)) {
       base_model <- gsub(paste0("\\+ b", i, "\\*", cov_fac), "", base_model)
       base_model <- gsub(paste0("\\+ c", i, "\\*", int_fac), "", base_model)
-      # También eliminar la línea de regresión completa si quedara suelta
     }
-    # Limpiar líneas vacías
     base_model <- gsub("\n\n", "\n", base_model)
     fit_base <- lavaan::cfa(model = base_model, data = prod_data,
                             estimator = est, ...)
     chi0 <- lavaan::lavInspect(fit_base, "fit")["chisq"]
     df0  <- lavaan::lavInspect(fit_base, "fit")["df"]
-    # Calcular valores críticos ajustados
     K_global <- qchisq(1 - p.crit, 2)
     K_uniform <- qchisq(1 - p.crit, 1)
     crit.global <- (chi0 / (K_global + df0 - 1)) * K_global
